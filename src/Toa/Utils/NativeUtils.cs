@@ -1,7 +1,7 @@
 ﻿using System;
 using WinApi.User32;
 
-namespace WagahighChoices.Toa
+namespace WagahighChoices.Toa.Utils
 {
     internal static class NativeUtils
     {

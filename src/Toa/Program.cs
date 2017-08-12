@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WagahighChoices.Toa.Utils;
 
 namespace WagahighChoices.Toa
 {
@@ -44,7 +45,7 @@ namespace WagahighChoices.Toa
 
         private readonly object _lockObj = new object();
 
-        public DirectoryInfo WagahighDirectory { get; }
+        public string WagahighDirectory { get; }
         public int Port { get; }
 
         public Process WagahighProcess { get; private set; }
@@ -52,7 +53,7 @@ namespace WagahighChoices.Toa
 
         public Program(string wagahighDirectory, int port)
         {
-            this.WagahighDirectory = new DirectoryInfo(wagahighDirectory);
+            this.WagahighDirectory = wagahighDirectory;
             this.Port = port;
         }
 
