@@ -1,5 +1,5 @@
 ﻿using System;
-using WinApi.User32;
+using WagahighChoices.Toa.Windows;
 
 namespace WagahighChoices.Toa.Utils
 {
@@ -10,17 +10,13 @@ namespace WagahighChoices.Toa.Utils
         {
             var result = IntPtr.Zero;
 
-            User32Methods.EnumWindows(
+            User32.EnumWindows(
                 (hWnd, lParam) =>
                 {
-                    int pid;
-                    unsafe
-                    {
-                        User32Methods.GetWindowThreadProcessId(hWnd, new IntPtr(&pid));
-                    }
+                    User32.GetWindowThreadProcessId(hWnd, out var pid);
 
                     if (pid == processId &&
-                        User32Methods.GetWindow(hWnd, (uint)GetWindowFlag.GW_OWNER) == IntPtr.Zero)
+                        User32.GetWindow(hWnd, GetWindowCmd.GW_OWNER) == IntPtr.Zero)
                     {
                         // オーナーウィンドウがない → 普通のウィンドウ
                         result = hWnd;
