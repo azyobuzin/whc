@@ -1,94 +1,97 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.CommandLineUtils;
 using WagahighChoices.Toa.Utils;
 
 namespace WagahighChoices.Toa
 {
-    // 改善案
-    // WagahighProcess: ワガハイプロセスとハンドルを持ってるクラスがウィンドウ操作を担当
-    // ToaServer: TCP サーバとして頑張る
-    // Program: ToaServer の立ち上げ → WagahighProcess を作成 → ToaServer に WagahighProcess を注入
-
-    public class Program : IDisposable
+    public static class Program
     {
         public const int DefaultPort = 51203;
 
         public static int Main(string[] args)
         {
-            if (args.Length < 1) return 1;
-
-            var wagahighDirectory = args[0];
-            var port = args.Length >= 2 ? int.Parse(args[1]) : DefaultPort;
-
-            using (var program = new Program(wagahighDirectory, port))
+            var app = new CommandLineApplication()
             {
-                // TODO: TCPサーバ開始
-                program.StartWagahighProcess();
+                FullName = "Toa",
+                Description = "ワガママハイスペック ウィンドウ操作サービス",
+            };
 
-                var w = new ManualResetEvent(false);
-                Console.CancelKeyPress += (_, e) =>
-                {
-                    e.Cancel = true;
-                    w.Set();
-                };
-                w.WaitOne();
-            }
-
-            return 0;
-        }
-
-        private readonly object _lockObj = new object();
-
-        public string WagahighDirectory { get; }
-        public int Port { get; }
-
-        public Process WagahighProcess { get; private set; }
-        public IntPtr MainWindowHandle { get; private set; }
-
-        public Program(string wagahighDirectory, int port)
-        {
-            this.WagahighDirectory = wagahighDirectory;
-            this.Port = port;
-        }
-
-        public void StartWagahighProcess()
-        {
-            this.WagahighProcess = Process.Start(
-                new ProcessStartInfo(Path.Combine(this.WagahighDirectory.FullName, "ワガママハイスペック.exe"), "-forcelog=clear")
-                {
-                    WorkingDirectory = this.WagahighDirectory.FullName
-                }
+            var directoryOption = app.Option(
+                "-d|--directory <dir>",
+                "ワガママハイスペック.exe が存在するディレクトリ",
+                CommandOptionType.SingleValue
             );
 
-            while (true)
+            var portOption = app.Option(
+                "-p|--port <port>",
+                "使用するポート番号",
+                CommandOptionType.SingleValue
+            );
+
+            app.OnExecute(() =>
             {
-                Thread.Sleep(500);
-                var mainWindow = NativeUtils.FindMainWindow(this.WagahighProcess.Id);
-                if (mainWindow != IntPtr.Zero)
+                var port = portOption.HasValue() ? int.Parse(portOption.Value()) : DefaultPort;
+
+                // Ctrl + C が押されたときの動作を設定しておく
+                var w = new ManualResetEvent(false);
+                var canceled = 0;
+                Console.CancelKeyPress += (_, e) =>
                 {
-                    this.MainWindowHandle = mainWindow;
-                    break;
+                    if (Interlocked.CompareExchange(ref canceled, 1, 0) == 0)
+                    {
+                        Log.WriteMessage("Terminating");
+                        e.Cancel = true;
+                        w.Set();
+                    }
+                };
+
+                using (var server = ToaServer.Start(port))
+                {
+                    var process = directoryOption.HasValue()
+                        ? StartWagahigh(directoryOption.Value())
+                        : FindProcess();
+
+                    if (process == null)
+                    {
+                        Log.WriteMessage("Could not find the process");
+                        return 1;
+                    }
+
+                    Log.WriteMessage("Process ID: " + process.Process.Id);
+
+                    using (var executor = new CommandExecutor(process))
+                    {
+                        server.SetExecutor(executor);
+                        w.WaitOne();
+                    }
                 }
-            }
+
+                return 0;
+            });
+
+            return app.Execute(args);
         }
 
-        public void Dispose()
+        private static WagahighProcess StartWagahigh(string directory)
         {
-            if (this.WagahighProcess != null)
-            {
-                if (!this.WagahighProcess.HasExited)
-                {
-                    this.WagahighProcess.Kill();
-                }
+            return WagahighProcess.StartAsync(directory).Result;
+        }
 
-                this.WagahighProcess.Dispose();
-                this.WagahighProcess = null;
+        private static WagahighProcess FindProcess()
+        {
+            var processes = Process.GetProcessesByName("ワガママハイスペック");
+
+            if (processes.Length == 0) return null;
+
+            try
+            {
+                return WagahighProcess.FromProcess(processes[0].Id);
+            }
+            finally
+            {
+                foreach (var p in processes) p.Dispose();
             }
         }
     }

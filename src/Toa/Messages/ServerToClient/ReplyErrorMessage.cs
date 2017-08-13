@@ -1,39 +1,36 @@
-﻿using System;
+﻿using ZeroFormatter;
 
 namespace WagahighChoices.Toa.Messages.ServerToClient
 {
-    public class ReplyErrorMessage : ISerializableMessage
+    [ZeroFormattable]
+    public class ReplyErrorMessage : ToaMessage
     {
-        public int MessageId { get; }
-        public ServerErrorCode ErrorCode { get; }
+        public override byte MessageCode => (byte)ServerToClientMessageCode.ReplyError;
 
-        public ReplyErrorMessage(int messageId, ServerErrorCode errorCode)
+        [Index(0)]
+        public virtual int MessageId { get; set; }
+
+        [Index(1)]
+        public virtual ServerErrorCode ErrorCode { get; set; }
+
+        [Index(2)]
+        public virtual string AdditionalMessage { get; set; }
+
+        public ReplyErrorMessage() { }
+
+        public ReplyErrorMessage(int messageId, ServerErrorCode errorCode, string additionalMessage = null)
         {
             this.MessageId = messageId;
             this.ErrorCode = errorCode;
-        }
-
-        public byte MessageCode => (byte)ServerToClientMessageCode.ReplyError;
-        public int ComputeLength() => 5;
-
-        public void Serialize(ArraySegment<byte> dest)
-        {
-            SerializationUtils.WriteInt(dest.Array, dest.Offset, this.MessageId);
-            dest.Array[dest.Offset + 4] = (byte)this.ErrorCode;
-        }
-
-        public static ReplyErrorMessage Deserialize(byte[] src)
-        {
-            return new ReplyErrorMessage(
-                SerializationUtils.ReadInt(src, 0),
-                (ServerErrorCode)src[4]
-            );
+            this.AdditionalMessage = additionalMessage;
         }
     }
 
     public enum ServerErrorCode : byte
     {
         NotReady = 1,
-        ServerError = 2,
+        ServerError,
+        UnsupportedMessageCode,
+        InvalidMessage,
     }
 }

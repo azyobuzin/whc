@@ -18,5 +18,7 @@ namespace WagahighChoices.Toa.Utils
 
             return bytesRead;
         }
+
+        public static void Forget(this Task task) { }
     }
 }

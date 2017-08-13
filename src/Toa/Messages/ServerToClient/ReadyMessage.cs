@@ -1,13 +1,12 @@
-﻿using System;
+﻿using ZeroFormatter;
 
 namespace WagahighChoices.Toa.Messages.ServerToClient
 {
-    public class ReadyMessage : ISerializableMessage
+    [ZeroFormattable]
+    public class ReadyMessage : ToaMessage
     {
         public static ReadyMessage Default { get; } = new ReadyMessage();
 
-        public byte MessageCode => (byte)ServerToClientMessageCode.Ready;
-        public int ComputeLength() => 0;
-        public void Serialize(ArraySegment<byte> dest) { }
+        public override byte MessageCode => (byte)ServerToClientMessageCode.Ready;
     }
 }

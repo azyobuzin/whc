@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net.Sockets;
 
 namespace WagahighChoices.Toa.Utils
 {
@@ -7,12 +6,16 @@ namespace WagahighChoices.Toa.Utils
     {
         public static void WriteMessage(string message)
         {
-            Console.WriteLine("[{0}] {1}", DateTime.Now, message);
+            try
+            {
+                Console.WriteLine("[{0}] {1}", DateTime.Now, message);
+            }
+            catch { }
         }
 
-        public static void WriteMessage(string message, TcpClient client)
+        public static void WriteMessage(string message, Client client)
         {
-            WriteMessage(client.Client.RemoteEndPoint + "\n" + message);
+            WriteMessage(client.RemoteEndPoint + "\n" + message);
         }
 
         public static void LogException(Exception ex)
@@ -20,7 +23,7 @@ namespace WagahighChoices.Toa.Utils
             WriteMessage(ex.ToString());
         }
 
-        public static void LogException(Exception ex, TcpClient client)
+        public static void LogException(Exception ex, Client client)
         {
             WriteMessage(ex.ToString(), client);
         }
