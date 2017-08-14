@@ -4,5 +4,8 @@
     {
         Ready = 1,
         ReplyError,
+        ReplyDone,
+        LogData,
+        CaptureResult,
     }
 }

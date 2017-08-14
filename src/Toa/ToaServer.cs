@@ -10,7 +10,6 @@ using WagahighChoices.Toa.Messages;
 using WagahighChoices.Toa.Messages.ClientToServer;
 using WagahighChoices.Toa.Messages.ServerToClient;
 using WagahighChoices.Toa.Utils;
-using ZeroFormatter;
 using ZeroFormatter.Internal;
 
 namespace WagahighChoices.Toa
@@ -275,7 +274,7 @@ namespace WagahighChoices.Toa
         {
             var buf = new byte[32];
             buf[0] = message.MessageCode;
-            var dataLen = ZeroFormatterSerializer.NonGeneric.Serialize(message.GetType(), ref buf, 5, message);
+            var dataLen = message.Serialize(ref buf, 5);
             BinaryUtil.WriteInt32Unsafe(ref buf, 1, dataLen);
 
             var bufLen = MessageConstants.ServerMessageHeaderLength + dataLen;

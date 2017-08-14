@@ -1,9 +1,10 @@
-﻿using ZeroFormatter;
+﻿using System;
+using ZeroFormatter;
 
 namespace WagahighChoices.Toa.Messages.ServerToClient
 {
     [ZeroFormattable]
-    public class ReplyErrorMessage : ToaMessage
+    public class ReplyErrorMessage : ZeroFormattableMessage
     {
         public override byte MessageCode => (byte)ServerToClientMessageCode.ReplyError;
 
@@ -24,6 +25,9 @@ namespace WagahighChoices.Toa.Messages.ServerToClient
             this.ErrorCode = errorCode;
             this.AdditionalMessage = additionalMessage;
         }
+
+        public static ReplyErrorMessage Deserialize(ArraySegment<byte> bytes)
+            => DeserializeCore<ReplyErrorMessage>(bytes);
     }
 
     public enum ServerErrorCode : byte

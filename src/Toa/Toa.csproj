@@ -40,7 +40,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="Messages\ClientToServer\CaptureMessage.cs" />
+    <Compile Include="Messages\ClientToServer\MouseClickMessage.cs" />
+    <Compile Include="Messages\ClientToServer\SetCursorPosMessage.cs" />
+    <Compile Include="Messages\InvalidMessageDataException.cs" />
     <Compile Include="Messages\MessageConstants.cs" />
+    <Compile Include="Messages\NoContentMessage.cs" />
+    <Compile Include="Messages\ServerToClient\ReplyDoneMessage.cs" />
+    <Compile Include="Messages\XYParameterMessage.cs" />
+    <Compile Include="Messages\ZeroFormattableMessage.cs" />
     <Compile Include="Utils\AsyncLock.cs" />
     <Compile Include="Utils\Extensions.cs" />
     <Compile Include="Utils\Log.cs" />

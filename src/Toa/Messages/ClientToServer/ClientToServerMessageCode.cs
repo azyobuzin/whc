@@ -2,5 +2,8 @@
 {
     public enum ClientToServerMessageCode : byte
     {
+        Capture = 1,
+        SetCursorPos,
+        MouseClick,
     }
 }

@@ -6,5 +6,7 @@ namespace WagahighChoices.Toa.Messages
     {
         [IgnoreFormat]
         public abstract byte MessageCode { get; }
+
+        public abstract int Serialize(ref byte[] buffer, int offset);
     }
 }

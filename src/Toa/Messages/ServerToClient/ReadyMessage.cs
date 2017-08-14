@@ -1,9 +1,6 @@
-﻿using ZeroFormatter;
-
-namespace WagahighChoices.Toa.Messages.ServerToClient
+﻿namespace WagahighChoices.Toa.Messages.ServerToClient
 {
-    [ZeroFormattable]
-    public class ReadyMessage : ToaMessage
+    public class ReadyMessage : NoContentMessage
     {
         public static ReadyMessage Default { get; } = new ReadyMessage();
 
