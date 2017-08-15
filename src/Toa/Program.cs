@@ -18,6 +18,8 @@ namespace WagahighChoices.Toa
                 Description = "ワガママハイスペック ウィンドウ操作サービス",
             };
 
+            app.HelpOption("-?|-h|--help");
+
             var directoryOption = app.Option(
                 "-d|--directory <dir>",
                 "ワガママハイスペック.exe が存在するディレクトリ",

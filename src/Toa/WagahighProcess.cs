@@ -28,6 +28,11 @@ namespace WagahighChoices.Toa
                 }
             );
 
+            p.Exited += (sender, __) =>
+            {
+                throw new Exception("ワガママハイスペック.exe が終了コード " + ((Process)sender).ExitCode + " で終了しました。");
+            };
+            
             var mainWindow = IntPtr.Zero;
 
             for (var count = 0; count < 20; count++)

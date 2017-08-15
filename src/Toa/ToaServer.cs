@@ -72,7 +72,8 @@ namespace WagahighChoices.Toa
                 }
                 catch (Exception ex)
                 {
-                    Log.LogException(ex);
+                    if (!this._disposed)
+                        Log.LogException(ex);
                     continue;
                 }
 
