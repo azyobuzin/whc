@@ -1,11 +1,16 @@
-FROM ubuntu:16.04
+FROM ubuntu:17.04
+
+RUN useradd -m wagahigh
+
+ADD wagahigh.tar.xz /home/wagahigh/.wine/drive_c/wagahigh/
+RUN chown -R wagahigh:wagahigh /home/wagahigh
 
 # apt-get update がクソ遅いので日本サーバーに変更
 RUN sed -i 's|//archive\.ubuntu\.com|//jp\.archive\.ubuntu\.com|g' /etc/apt/sources.list
 
 RUN dpkg --add-architecture i386 && \
     apt-get update -y && \
-    apt-get install -y wget apt-utils apt-transport-https software-properties-common && \
+    apt-get install -y wget apt-transport-https software-properties-common && \
     wget -O - https://dl.winehq.org/wine-builds/Release.key | apt-key add - && \
     apt-add-repository -y https://dl.winehq.org/wine-builds/ubuntu/ && \
     apt-get update -y && \
@@ -27,10 +32,14 @@ RUN wget -O - https://github.com/Winetricks/winetricks/archive/20170614.tar.gz |
     make -C winetricks-20170614 install && \
     rm -rf winetricks-20170614
 
+COPY run_wagahigh.sh /
+RUN chmod a+rx /run_wagahigh.sh
+
+# Wine は通常ユーザーで実行する
+USER wagahigh
+WORKDIR /home/wagahigh
+
 RUN winetricks wenquanyi
 
-ADD wagahigh.tar.xz /root/.wine/drive_c/wagahigh/
-ADD run_wagahigh.sh /
-
 EXPOSE 5900 6000
-CMD sh /run_wagahigh.sh
+CMD /run_wagahigh.sh
