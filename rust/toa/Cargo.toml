@@ -1,0 +1,10 @@
+[package]
+name = "toa"
+version = "0.1.0"
+authors = ["azyobuzin <azyobuzin@users.sourceforge.jp>"]
+publish = false
+
+[dependencies]
+futures = "0.1.14"
+tokio-core = "0.1.9"
+winapi = "0.2.8"
