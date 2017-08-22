@@ -193,7 +193,7 @@ pub fn start_wagahigh<P: AsRef<Path>>(directory: P, handle: &tokio_core::reactor
     create_future(directory.as_ref(), handle)
 }
 
-pub fn create_process_future(process_id: u32) -> Result<ProcessFuture, WindowsError> {
+pub fn wait_process_async(process_id: u32) -> Result<ProcessFuture, WindowsError> {
     let process_handle = open_process(process_id)?;
 
     let (sender, receiver) = oneshot::channel();
