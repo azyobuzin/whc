@@ -1,11 +1,16 @@
+use std::error::Error;
+use std::fmt;
 use std::io;
 use std::mem;
+use std::os::windows::process::ExitStatusExt;
 use std::process;
 use std::path::Path;
 use std::ptr;
-use futures;
+use std::time;
+use futures::{Async, Future, Poll, Stream};
+use futures::sync::oneshot;
 use kernel32;
-use time;
+use tokio_core;
 use user32;
 use winapi::*;
 use super::WindowsError;
@@ -49,12 +54,11 @@ impl ExternalWagahighProcess {
         ExternalWagahighProcess { process_id, window_handle }
     }
 
-    /// ウィンドウが見つからなければ `Ok(None)`、エラーが発生した場合は `Err` を返す。
-    fn from_process(process_id: u32) -> Result<Option<ExternalWagahighProcess>, WindowsError> {
+    pub fn from_process(process_id: u32) -> Result<ExternalWagahighProcess, FindWagahighError> {
         match find_main_window(process_id) {
-            Ok(hwnd) if hwnd.is_null() => Ok(None),
-            Ok(hwnd) => Ok(Some(Self::new(process_id, hwnd))),
-            Err(x) => Err(x),
+            Ok(hwnd) if hwnd.is_null() => Err(FindWagahighError::WindowNotFound),
+            Ok(hwnd) => Ok(Self::new(process_id, hwnd)),
+            Err(x) => Err(x.into()),
         }
     }
 }
@@ -62,6 +66,36 @@ impl ExternalWagahighProcess {
 impl WagahighProcess for ExternalWagahighProcess {
     fn process_id(&self) -> u32 { self.process_id }
     fn window_handle(&self) -> HWND { self.window_handle }
+}
+
+#[derive(Debug)]
+pub enum FindWagahighError {
+    WindowNotFound,
+    WindowsError(WindowsError),
+}
+
+impl fmt::Display for FindWagahighError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FindWagahighError::WindowNotFound => f.write_str("window not found"),
+            FindWagahighError::WindowsError(ref x) => fmt::Display::fmt(x, f),
+        }
+    }
+}
+
+impl Error for FindWagahighError {
+    fn description(&self) -> &str {
+        match *self {
+            FindWagahighError::WindowNotFound => "window not found",
+            FindWagahighError::WindowsError(ref x) => x.description(),
+        }
+    }
+}
+
+impl From<WindowsError> for FindWagahighError {
+    fn from(x: WindowsError) -> Self {
+        FindWagahighError::WindowsError(x)
+    }
 }
 
 fn find_main_window(process_id: u32) -> Result<HWND, WindowsError> {
@@ -114,65 +148,162 @@ fn find_main_window(process_id: u32) -> Result<HWND, WindowsError> {
     Ok(lparam.main_window_handle)
 }
 
-// Future じゃなくて OverClock にしたらかっこいい気がしたけど
-// 明らかに紛らわしい
-#[derive(Debug)]
-pub struct StartWagahighFuture {
-    child: Option<process::Child>,
-    count: u32,
-    start_time: Option<time::Tm>,
+#[inline]
+pub fn start_wagahigh<P: AsRef<Path>>(directory: P, handle: &tokio_core::reactor::Handle)
+    -> io::Result<Box<Future<Item = ChildWagahighProcess, Error = FindWagahighError>>>
+{
+    // 型引数 P に依存しないところを切り出し
+    fn create_future(directory: &Path, handle: &tokio_core::reactor::Handle)
+        -> io::Result<Box<Future<Item = ChildWagahighProcess, Error = FindWagahighError>>>
+    {
+        const DELAY_MILLIS: u64 = 500;
+        const MAX_NUM_TRIAL: u64 = 20;
+
+        let exe_path = directory.join("ワガママハイスペック.exe");
+        let mut child = process::Command::new(exe_path)
+            .arg("-forcelog=clear")
+            .current_dir(directory)
+            .spawn()?;
+        let pid = child.id();
+
+        Ok(Box::new(
+            tokio_core::reactor::Interval
+                ::new_at(time::Instant::now(), time::Duration::from_millis(DELAY_MILLIS), handle)?
+                .take(MAX_NUM_TRIAL)
+                .then(move |r| match r {
+                    Ok(_) => find_main_window(pid),
+                    Err(_) => Ok(ptr::null_mut()), // Interval に Err を返すコードなし
+                })
+                .filter(|hwnd| !hwnd.is_null())
+                .into_future()
+                .then(move |r| match r {
+                    Ok((Some(hwnd), _)) => Ok(ChildWagahighProcess::new(child, hwnd)),
+                    Ok((None, _)) => {
+                        child.kill().ok();
+                        Err(FindWagahighError::WindowNotFound)
+                    }
+                    Err((x, _)) => {
+                        child.kill().ok();
+                        Err(x.into())
+                    }
+                })
+        ))
+    }
+
+    create_future(directory.as_ref(), handle)
 }
 
-impl futures::Future for StartWagahighFuture {
-    type Item = Option<ChildWagahighProcess>;
+pub fn create_process_future(process_id: u32) -> Result<ProcessFuture, WindowsError> {
+    let process_handle = open_process(process_id)?;
+
+    let (sender, receiver) = oneshot::channel();
+    let tx_ptr = Box::into_raw(Box::new(sender));
+
+    let wait_handle = register_wait(
+        process_handle,
+        Some(process_wait_callback),
+        tx_ptr as PVOID,
+        INFINITE
+    )?;
+
+    Ok(ProcessFuture { wait_handle, receiver })
+}
+
+#[derive(Debug)]
+pub struct ProcessFuture {
+    wait_handle: WaitHandle,
+    receiver: oneshot::Receiver<()>,
+}
+
+impl Future for ProcessFuture {
+    type Item = process::ExitStatus;
     type Error = WindowsError;
 
-    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        const DELAY_MILLIS: i64 = 500;
-        const MAX_NUM_TRIAL: u32 = 20;
-
-        let now = time::now_utc();
-
-        if let Some(start_time) = self.start_time {
-            if now - start_time < time::Duration::milliseconds(DELAY_MILLIS) {
-                return Ok(futures::Async::NotReady);
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.receiver.poll() {
+            Ok(Async::Ready(_)) => {
+                let mut exit_code: DWORD = unsafe { mem::uninitialized() };
+                let success = unsafe {
+                    kernel32::GetExitCodeProcess(self.wait_handle.process_handle, &mut exit_code as LPDWORD)
+                };
+                if success != FALSE {
+                    Ok(Async::Ready(process::ExitStatus::from_raw(exit_code as u32)))
+                } else {
+                    Err(WindowsError::from_last_error("GetExitCodeProcess"))
+                }
             }
-        }
-
-        let hwnd;
-        if let Some(ref child) = self.child {
-            self.start_time = Some(now);
-            self.count += 1;
-
-            hwnd = find_main_window(child.id())?;
-        } else {
-            unreachable!();
-        }
-
-        if hwnd.is_null() {
-            if self.count >= 20 { Ok(futures::Async::Ready(None)) }
-            else { Ok(futures::Async::NotReady) }
-        } else {
-            Ok(futures::Async::Ready(Some(
-                ChildWagahighProcess::new(
-                    mem::replace(&mut self.child, None).unwrap(),
-                    hwnd
-                )
-            )))
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(_) => unreachable!(), // cancel は呼び出さない
         }
     }
 }
 
-pub fn start_wagahigh<P: AsRef<Path>>(directory: P) -> io::Result<StartWagahighFuture> {
-    let exe_path = directory.as_ref().join("ワガママハイスペック.exe");
-    let child = process::Command::new(exe_path)
-        .arg("-forcelog=clear")
-        .current_dir(directory)
-        .spawn()?;
+#[derive(Debug)]
+struct ProcessHandle(HANDLE);
 
-    Ok(StartWagahighFuture {
-        child: Some(child),
-        count: 0,
-        start_time: None,
-    })
+impl Drop for ProcessHandle {
+    fn drop(&mut self) {
+        unsafe { kernel32::CloseHandle(self.0); }
+    }
+}
+
+#[derive(Debug)]
+struct WaitHandle {
+    wait_object: HANDLE,
+    process_handle: HANDLE,
+}
+
+impl Drop for WaitHandle {
+    fn drop(&mut self) {
+        unsafe {
+            // コールバックが確実に終了してからプロセスハンドルを閉じる
+            kernel32::UnregisterWaitEx(self.wait_object, INVALID_HANDLE_VALUE);
+            kernel32::CloseHandle(self.process_handle);
+        }
+    }
+}
+
+fn open_process(process_id: u32) -> Result<ProcessHandle, WindowsError> {
+    let handle = unsafe {
+        kernel32::OpenProcess(
+            SYNCHRONIZE | PROCESS_QUERY_INFORMATION,
+            FALSE,
+            process_id as DWORD
+        )
+    };
+
+    if handle.is_null() { 
+        Err(WindowsError::from_last_error("OpenProcess"))
+    } else {
+        Ok(ProcessHandle(handle))
+    }
+}
+
+fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, context: PVOID, timeout_millis: ULONG)
+    -> Result<WaitHandle, WindowsError>
+{
+    let mut wait_object: HANDLE = unsafe { mem::uninitialized() };
+    let success = unsafe {
+        kernel32::RegisterWaitForSingleObject(
+            &mut wait_object as PHANDLE,
+            process_handle.0,
+            callback,
+            context,
+            timeout_millis,
+            WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE
+        )
+    };
+
+    if success != FALSE {
+        let ph = process_handle.0;
+        mem::forget(process_handle); // CloseHandle しない
+        Ok(WaitHandle { wait_object, process_handle: ph })
+    } else {
+        Err(WindowsError::from_last_error("RegisterWaitForSingleObject"))
+    }
+}
+
+extern "system" fn process_wait_callback(parameter: PVOID, _: BOOLEAN) {
+    let sender = unsafe { Box::from_raw(parameter as *mut oneshot::Sender<()>) };
+    sender.send(()).ok();
 }

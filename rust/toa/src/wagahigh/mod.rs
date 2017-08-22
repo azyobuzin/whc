@@ -15,7 +15,7 @@ pub struct WindowsError {
 }
 
 impl fmt::Display for WindowsError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("An error ")?;
         if let Some(ref error_code) = self.error_code {
             write!(f, "{:#x} ", error_code)?;
@@ -30,7 +30,7 @@ impl fmt::Display for WindowsError {
 
 impl std::error::Error for WindowsError {
     fn description(&self) -> &str {
-        "An error occured in calling Windows API"
+        "an error occured in calling Windows API"
     }
 }
 

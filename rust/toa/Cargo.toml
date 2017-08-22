@@ -5,10 +5,10 @@ authors = ["azyobuzin <azyobuzin@users.sourceforge.jp>"]
 publish = false
 
 [dependencies]
+ctrlc = "3.0.2"
 futures = "0.1.14"
 gdi32-sys = "0.2.0"
 kernel32-sys = "0.2.2"
-time = "0.1.38"
 tokio-core = "0.1.9"
 user32-sys = "0.2.0"
 winapi = "0.2.8"
