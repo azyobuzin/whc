@@ -45,10 +45,6 @@ fn main() {
     //let mut core = tokio_core::reactor::Core::new().unwrap();
     //let handle = core.handle();
     //println!("{:?}", wagahigh::open_process(11784));
-
-    for x in wagahigh::windows_helper::ProcessIterator::new().unwrap() {
-        println!("{:?}", x);
-    }
 }
 
 fn wait_sigint_async() -> Result<SigintFuture, ctrlc::Error> {
