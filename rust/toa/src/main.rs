@@ -6,12 +6,17 @@ extern crate clap;
 extern crate futures;
 extern crate tokio_core;
 
+pub mod future_helper;
 pub mod wagahigh;
 pub mod server;
 pub mod sigint_helper;
 
+use std::error::Error;
 use clap::{App, Arg};
-use wagahigh::WagahighProcess;
+use futures::Future;
+use futures::future;
+use future_helper::*;
+use wagahigh::*;
 
 fn main() {
     let matches = App::new("Toa")
@@ -38,7 +43,16 @@ fn main() {
     let handle = core.handle();
 
     let sigint_future = sigint_helper::wait_sigint_async().unwrap();
-    
+
+    let process_future = {
+        let find_future: Box<Future<Item = WagahighProcess, Error = Box<Error>>> =
+            match matches.value_of_os("directory") {
+                // TODO: この辺の unwrap を future に入れてしまいたい
+                Some(x) => Box::new(boxed_err(start_wagahigh(x, &handle).unwrap())),
+                None => Box::new(future::ok(find_wagahigh().unwrap()))
+            };
+        
+    };
+
     unimplemented!()
 }
-

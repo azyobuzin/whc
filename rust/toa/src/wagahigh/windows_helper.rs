@@ -150,7 +150,7 @@ pub fn find_main_window(process_id: u32) -> Result<HWND, WindowsError> {
 }
 
 pub fn wait_process_async(process_id: u32) -> Result<ProcessFuture, WindowsError> {
-    let process_handle = open_process(process_id)?;
+    let process_handle = open_process(process_id, SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION)?;
 
     let (sender, receiver) = oneshot::channel();
     let tx_ptr = Box::into_raw(Box::new(sender));
@@ -219,13 +219,9 @@ impl Drop for WaitHandle {
     }
 }
 
-fn open_process(process_id: u32) -> Result<ProcessHandle, WindowsError> {
+fn open_process(process_id: u32, desired_access: DWORD) -> Result<ProcessHandle, WindowsError> {
     let handle = unsafe {
-        kernel32::OpenProcess(
-            SYNCHRONIZE | PROCESS_QUERY_INFORMATION,
-            FALSE,
-            process_id as DWORD
-        )
+        kernel32::OpenProcess(desired_access, FALSE, process_id as DWORD)
     };
 
     if handle.is_null() { 
@@ -265,7 +261,7 @@ extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired:
 }
 
 pub fn get_process_path(process_id: u32) -> Result<ffi::OsString, WindowsError> {
-    let process_handle = open_process(process_id)?;
+    let process_handle = open_process(process_id, PROCESS_QUERY_INFORMATION)?;
     let buffer = HeapArray::<WCHAR>::alloc(1024);
     let len = unsafe {
         kernel32::K32GetModuleFileNameExW(
@@ -392,10 +388,14 @@ impl Iterator for ProcessIterator {
             szExeFile: [0; MAX_PATH],
         };
 
-        let success = unsafe {
+        let (success, func_name) = unsafe {
             let lppe = &mut entry as LPPROCESSENTRY32W;
-            if self.is_first { kernel32::Process32FirstW(self.snapshot_handle, lppe) }
-            else { kernel32::Process32NextW(self.snapshot_handle, lppe) }
+            if self.is_first {
+                (kernel32::Process32FirstW(self.snapshot_handle, lppe), "Process32FirstW")
+            }
+            else {
+                (kernel32::Process32NextW(self.snapshot_handle, lppe), "Process32NextW")
+            }
         };
 
         let result =
@@ -404,15 +404,18 @@ impl Iterator for ProcessIterator {
             } else {
                 match get_last_error() {
                     ERROR_NO_MORE_FILES => None,
-                    x => Some(Err(WindowsError::from_error_code(
-                        if self.is_first { "Process32FirstW" }
-                        else { "Process32NextW" },
-                        x
-                    )))
+                    x => Some(Err(WindowsError::from_error_code(func_name, x)))
                 }
             };
 
         self.is_first = false;
         result
     }
+}
+
+pub fn kill_process(process_id: u32) -> Result<(), WindowsError> {
+    let handle = open_process(process_id, PROCESS_TERMINATE)?;
+    let success = unsafe { kernel32::TerminateProcess(handle.0, 1) };
+    if success != FALSE { Ok(()) }
+    else { Err(WindowsError::from_last_error("TerminateProcess")) }
 }

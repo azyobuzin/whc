@@ -5,63 +5,26 @@ use std::process;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::time;
-use futures::{Future, Stream};
+use futures::{Future, Poll, Stream};
 use tokio_core;
 use super::winapi::*;
 use super::windows_helper::*;
 
-pub trait WagahighProcess {
-    fn process_id(&self) -> u32;
-    fn window_handle(&self) -> HWND;
-    fn directory(&self) -> &Path;
-
-    fn wait_async(&self) -> Result<ProcessFuture, WindowsError> {
-        wait_process_async(self.process_id())
-    }
-}
-
-#[derive(Debug)]
-pub struct ChildWagahighProcess {
-    child: process::Child,
+#[derive(Clone, Debug)]
+pub struct WagahighProcess {
+    process_id: u32,
     window_handle: HWND,
     directory: PathBuf,
 }
 
-impl ChildWagahighProcess {
-    pub fn new<P>(child: process::Child, window_handle: HWND, directory: P) -> Self
-        where P: Into<PathBuf>
-    {
-        ChildWagahighProcess { child, window_handle, directory: directory.into() }
-    }
-}
-
-impl WagahighProcess for ChildWagahighProcess {
-    fn process_id(&self) -> u32 { self.child.id() }
-    fn window_handle(&self) -> HWND { self.window_handle }
-    fn directory(&self) -> &Path { &self.directory }
-}
-
-impl Drop for ChildWagahighProcess {
-    fn drop(&mut self) {
-        self.child.kill().ok();
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ExternalWagahighProcess {
-    process_id: u32,
-    window_handle: HWND,
-    directory: PathBuf
-}
-
-impl ExternalWagahighProcess {
+impl WagahighProcess {
     pub fn new<P>(process_id: u32, window_handle: HWND, directory: P) -> Self
         where P: Into<PathBuf>
     {
-        ExternalWagahighProcess { process_id, window_handle, directory: directory.into() }
+        WagahighProcess { process_id, window_handle, directory: directory.into() }
     }
 
-    pub fn from_process(process_id: u32) -> Result<ExternalWagahighProcess, StartWagahighError> {
+    pub fn from_process(process_id: u32) -> Result<WagahighProcess, StartWagahighError> {
         let mut exe_path = PathBuf::from(get_process_path(process_id)?);
         exe_path.pop();
 
@@ -71,12 +34,18 @@ impl ExternalWagahighProcess {
             Err(x) => Err(x.into()),
         }
     }
-}
 
-impl WagahighProcess for ExternalWagahighProcess {
     fn process_id(&self) -> u32 { self.process_id }
     fn window_handle(&self) -> HWND { self.window_handle }
     fn directory(&self) -> &Path { &self.directory }
+
+    fn wait_async(&self, kill_when_drop: bool) -> Result<WagahighProcessFuture, WindowsError> {
+        Ok(WagahighProcessFuture {
+            inner: wait_process_async(self.process_id)?,
+            process_id: self.process_id,
+            kill_when_drop,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -109,13 +78,37 @@ impl From<WindowsError> for StartWagahighError {
     }
 }
 
+#[derive(Debug)]
+pub struct WagahighProcessFuture {
+    inner: ProcessFuture,
+    process_id: u32,
+    kill_when_drop: bool,
+}
+
+impl Future for WagahighProcessFuture {
+    type Item = <ProcessFuture as Future>::Item;
+    type Error = <ProcessFuture as Future>::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.inner.poll()
+    }
+}
+
+impl Drop for WagahighProcessFuture {
+    fn drop(&mut self) {
+        if self.kill_when_drop {
+            kill_process(self.process_id).ok();
+        }
+    }
+}
+
 #[inline]
 pub fn start_wagahigh<P: AsRef<Path>>(directory: P, handle: &tokio_core::reactor::Handle)
-    -> io::Result<Box<Future<Item = ChildWagahighProcess, Error = StartWagahighError>>>
+    -> io::Result<Box<Future<Item = WagahighProcess, Error = StartWagahighError>>>
 {
     // 型引数 P に依存しないところを切り出し
     fn create_future(directory: &Path, handle: &tokio_core::reactor::Handle)
-        -> io::Result<Box<Future<Item = ChildWagahighProcess, Error = StartWagahighError>>>
+        -> io::Result<Box<Future<Item = WagahighProcess, Error = StartWagahighError>>>
     {
         const DELAY_MILLIS: u64 = 500;
         const MAX_NUM_TRIAL: u64 = 20;
@@ -139,7 +132,7 @@ pub fn start_wagahigh<P: AsRef<Path>>(directory: P, handle: &tokio_core::reactor
                 .filter(|hwnd| !hwnd.is_null())
                 .into_future()
                 .then(move |r| match r {
-                    Ok((Some(hwnd), _)) => Ok(ChildWagahighProcess::new(child, hwnd, directory)),
+                    Ok((Some(hwnd), _)) => Ok(WagahighProcess::new(child.id(), hwnd, directory)),
                     Ok((None, _)) => {
                         child.kill().ok();
                         Err(StartWagahighError::WindowNotFound)
@@ -197,13 +190,13 @@ impl From<StartWagahighError> for FindWagahighError {
     }
 }
 
-pub fn find_wagahigh() -> Result<ExternalWagahighProcess, FindWagahighError> {
+pub fn find_wagahigh() -> Result<WagahighProcess, FindWagahighError> {
     // ワガママハイスペック.exe
     const EXPECTED_EXE: [WCHAR; 14] = [0x30ef, 0x30ac, 0x30de, 0x30de, 0x30cf, 0x30a4, 0x30b9, 0x30da, 0x30c3, 0x30af, 0x002e, 0x0065, 0x0078, 0x0065];
     for r in ProcessIterator::new()? {
         let p = r?;
         if p.exe_file_raw() == EXPECTED_EXE {
-            return Ok(ExternalWagahighProcess::from_process(p.process_id())?);
+            return Ok(WagahighProcess::from_process(p.process_id())?);
         }
     }
     Err(FindWagahighError::ProcessNotFound)
