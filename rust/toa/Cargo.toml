@@ -2,9 +2,11 @@
 name = "toa"
 version = "0.1.0"
 authors = ["azyobuzin <azyobuzin@users.sourceforge.jp>"]
+description = "ワガママハイスペック ウィンドウ操作サービス"
 publish = false
 
 [dependencies]
+clap = "2.26.0"
 ctrlc = "3.0.2"
 futures = "0.1.14"
 gdi32-sys = "0.2.0"

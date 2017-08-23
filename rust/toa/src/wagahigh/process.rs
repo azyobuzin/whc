@@ -1,11 +1,15 @@
 use std::error::Error;
+use std::ffi;
 use std::fmt;
+use std::heap::{Alloc, Heap};
 use std::io;
 use std::mem;
+use std::os::windows::prelude::*;
 use std::os::windows::process::ExitStatusExt;
 use std::process;
 use std::path::Path;
 use std::ptr;
+use std::slice;
 use std::time;
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::oneshot;
@@ -303,7 +307,59 @@ fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, c
     }
 }
 
-extern "system" fn process_wait_callback(parameter: PVOID, _: BOOLEAN) {
+extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired: BOOLEAN) {
     let sender = unsafe { Box::from_raw(parameter as *mut oneshot::Sender<()>) };
     sender.send(()).ok();
+}
+
+pub fn get_process_path(process_id: u32) -> Result<ffi::OsString, WindowsError> {
+    let process_handle = open_process(process_id)?;
+    let buffer = HeapArray::<WCHAR>::alloc(1024);
+    let len = unsafe {
+        kernel32::K32GetModuleFileNameExW(
+            process_handle.0,
+            ptr::null_mut(),
+            buffer.as_ptr(),
+            buffer.len() as DWORD
+        )
+    };
+    if len > 0 {
+        let s = unsafe { &buffer.as_slice()[..(len as usize)] };
+        Ok(ffi::OsString::from_wide(s))
+    } else {
+        Err(WindowsError::from_last_error("K32GetModuleFileNameExW"))
+    }
+}
+
+struct HeapArray<T> {
+    p: ptr::Unique<T>,
+    n: usize,
+}
+
+impl<T> HeapArray<T> {
+    fn alloc(n: usize) -> Self {
+        let p = Heap.alloc_array(n).unwrap();
+        HeapArray { p, n }
+    }
+
+    fn as_ptr(&self) -> *mut T {
+        self.p.as_ptr()
+    }
+
+    fn len(&self) -> usize {
+        self.n
+    }
+
+    // 未初期化領域も slice にできてしまうので unsafe
+    unsafe fn as_slice(&self) -> &[T] {
+        slice::from_raw_parts(self.p.as_ptr(), self.n)
+    }
+}
+
+impl<T> Drop for HeapArray<T> {
+    fn drop(&mut self) {
+        unsafe {
+            Heap.dealloc_array(self.p, self.n).ok();
+        }
+    }
 }

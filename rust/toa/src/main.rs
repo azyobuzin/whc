@@ -1,5 +1,8 @@
+#![feature(allocator_api, unique)]
 #![allow(dead_code)] // 邪魔なので一旦
 
+#[macro_use]
+extern crate clap;
 extern crate ctrlc;
 extern crate futures;
 extern crate gdi32;
@@ -13,12 +16,39 @@ mod server;
 
 use std::sync;
 use std::sync::atomic;
+use clap::{App, Arg};
 use futures::{Async, Future, Poll};
 
 fn main() {
+    let matches = App::new("Toa")
+        .version(crate_version!())
+        .author(crate_authors!("\n"))
+        .about(crate_description!())
+        .arg(
+            Arg::with_name("directory")
+                .short("d")
+                .long("directory")
+                .value_name("PATH")
+                .help("ワガママハイスペック.exe が存在するディレクトリ")
+        )
+        .arg(
+            Arg::with_name("port")
+                .short("p")
+                .long("port")
+                .value_name("NUM")
+                .help("使用するポート番号")
+        )
+        .get_matches();
+
+    //println!("{:?}", wagahigh::get_process_path(9148));
+
     //let mut core = tokio_core::reactor::Core::new().unwrap();
     //let handle = core.handle();
     //println!("{:?}", wagahigh::open_process(11784));
+
+    for x in wagahigh::windows_helper::ProcessIterator::new().unwrap() {
+        println!("{:?}", x);
+    }
 }
 
 fn wait_sigint_async() -> Result<SigintFuture, ctrlc::Error> {
@@ -51,6 +81,7 @@ impl Future for SigintFuture {
     type Error = ();
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // 効率悪そう
         if let Ok(mut task) = self.inner.task.write() {
             *task = Some(futures::task::current());
         }

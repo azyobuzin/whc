@@ -5,6 +5,8 @@ use kernel32;
 use winapi::*;
 
 mod process;
+pub mod windows_helper; // TODO: あとで pub 外す
+
 pub use self::process::*;
 
 #[derive(Debug)]
