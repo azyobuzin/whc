@@ -10,9 +10,9 @@ use std::ptr;
 use std::slice;
 use futures::{Async, Future, Poll};
 use futures::sync::oneshot;
-use kernel32;
-use user32;
-use winapi::*;
+use super::kernel32;
+use super::user32;
+use super::winapi::*;
 
 /// `GetLastError` はどう転んでも安全なので unsafe 外し
 pub fn get_last_error() -> DWORD {

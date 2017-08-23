@@ -7,7 +7,7 @@ use std::ptr;
 use std::time;
 use futures::{Future, Stream};
 use tokio_core;
-use winapi::*;
+use super::winapi::*;
 use super::windows_helper::*;
 
 pub trait WagahighProcess {
