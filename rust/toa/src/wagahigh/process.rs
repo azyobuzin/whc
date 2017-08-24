@@ -35,11 +35,11 @@ impl WagahighProcess {
         }
     }
 
-    fn process_id(&self) -> u32 { self.process_id }
-    fn window_handle(&self) -> HWND { self.window_handle }
-    fn directory(&self) -> &Path { &self.directory }
+    pub fn process_id(&self) -> u32 { self.process_id }
+    pub fn window_handle(&self) -> HWND { self.window_handle }
+    pub fn directory(&self) -> &Path { &self.directory }
 
-    fn wait_async(&self, kill_when_drop: bool) -> Result<WagahighProcessFuture, WindowsError> {
+    pub fn wait_async(&self, kill_when_drop: bool) -> Result<WagahighProcessFuture, WindowsError> {
         Ok(WagahighProcessFuture {
             inner: wait_process_async(self.process_id)?,
             process_id: self.process_id,

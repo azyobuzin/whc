@@ -18,6 +18,8 @@ use futures::future;
 use future_helper::*;
 use wagahigh::*;
 
+type BoxedFuture<T> = Box<Future<Item = T, Error = Box<Error>>>;
+
 fn main() {
     let matches = App::new("Toa")
         .version(crate_version!())
@@ -42,17 +44,40 @@ fn main() {
     let mut core = tokio_core::reactor::Core::new().unwrap();
     let handle = core.handle();
 
-    let sigint_future = sigint_helper::wait_sigint_async().unwrap();
+    let sigint_future = sigint_helper::wait_sigint_async().unwrap()
+        .and_then(|_| {
+            println!("Terminating");
+            Ok(())
+        });
 
     let process_future = {
-        let find_future: Box<Future<Item = WagahighProcess, Error = Box<Error>>> =
+        let (find_future, kill_when_exit): (BoxedFuture<WagahighProcess>, _) =
             match matches.value_of_os("directory") {
-                // TODO: この辺の unwrap を future に入れてしまいたい
-                Some(x) => Box::new(boxed_err(start_wagahigh(x, &handle).unwrap())),
-                None => Box::new(future::ok(find_wagahigh().unwrap()))
+                Some(x) => (Box::new(from_result_boxed(start_wagahigh(x, &handle))), true),
+                None => (Box::new(boxed_err(future::result(find_wagahigh()))), false),
             };
-        
+
+        find_future
+            .and_then(move |process| from_result_boxed(
+                process.wait_async(kill_when_exit)
+                    .map(|f| f.and_then(|exit_status| {
+                            match exit_status.code() {
+                                Some(x) => println!("Exit code: {}", x),
+                                None => println!("Terminated"),
+                            }
+                            Ok(())
+                    }))
+            ))
     };
 
-    unimplemented!()
+    let main_future = sigint_future.select2(process_future)
+        .then(|r| match r {
+            Ok(_) => Ok(()),
+            Err(future::Either::A(_)) => unreachable!(),
+            Err(future::Either::B((e, _))) => Err(e),
+        });
+
+    if let Err(x) = core.run(main_future) {
+        println!("{}", x);
+    }
 }
