@@ -4,6 +4,7 @@ use std::sync;
 use std::sync::atomic;
 use futures::{Async, Future, Poll};
 use futures::task;
+use void::Void;
 
 pub fn wait_sigint_async() -> Result<SigintFuture, ctrlc::Error> {
     let inner = sync::Arc::<SigintFutureInner>::default();
@@ -32,7 +33,7 @@ pub struct SigintFuture {
 
 impl Future for SigintFuture {
     type Item = ();
-    type Error = ();
+    type Error = Void;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // 効率悪そう

@@ -5,6 +5,7 @@
 extern crate clap;
 extern crate futures;
 extern crate tokio_core;
+extern crate void;
 
 pub mod future_helper;
 pub mod wagahigh;

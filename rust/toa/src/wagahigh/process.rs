@@ -39,7 +39,7 @@ impl WagahighProcess {
     pub fn window_handle(&self) -> HWND { self.window_handle }
     pub fn directory(&self) -> &Path { &self.directory }
 
-    pub fn wait_async(&self, kill_when_drop: bool) -> Result<WagahighProcessFuture, WindowsError> {
+    pub fn wait_async(&self, kill_when_drop: bool) -> io::Result<WagahighProcessFuture> {
         Ok(WagahighProcessFuture {
             inner: wait_process_async(self.process_id)?,
             process_id: self.process_id,
@@ -51,7 +51,7 @@ impl WagahighProcess {
 #[derive(Debug)]
 pub enum StartWagahighError {
     WindowNotFound,
-    WindowsError(WindowsError),
+    WindowsError(io::Error),
 }
 
 impl fmt::Display for StartWagahighError {
@@ -72,8 +72,8 @@ impl Error for StartWagahighError {
     }
 }
 
-impl From<WindowsError> for StartWagahighError {
-    fn from(x: WindowsError) -> Self {
+impl From<io::Error> for StartWagahighError {
+    fn from(x: io::Error) -> Self {
         StartWagahighError::WindowsError(x)
     }
 }
@@ -152,7 +152,7 @@ pub fn start_wagahigh<P: AsRef<Path>>(directory: P, handle: &tokio_core::reactor
 pub enum FindWagahighError {
     ProcessNotFound,
     WindowNotFound,
-    WindowsError(WindowsError),
+    WindowsError(io::Error),
 }
 
 impl fmt::Display for FindWagahighError {
@@ -175,8 +175,8 @@ impl Error for FindWagahighError {
     }
 }
 
-impl From<WindowsError> for FindWagahighError {
-    fn from(x: WindowsError) -> Self {
+impl From<io::Error> for FindWagahighError {
+    fn from(x: io::Error) -> Self {
         FindWagahighError::WindowsError(x)
     }
 }

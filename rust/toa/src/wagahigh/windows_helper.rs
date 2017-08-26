@@ -1,7 +1,7 @@
-use std::error::Error;
 use std::ffi;
 use std::fmt;
 use std::heap::{Alloc, Heap};
+use std::io;
 use std::mem;
 use std::os::windows::prelude::*;
 use std::os::windows::process::ExitStatusExt;
@@ -19,87 +19,7 @@ pub fn get_last_error() -> DWORD {
     unsafe { kernel32::GetLastError() }
 }
 
-#[derive(Debug)]
-pub struct WindowsError {
-    function_name: &'static str,
-    error_code: Option<DWORD>,
-    message: Option<String>,
-}
-
-impl fmt::Display for WindowsError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("An error ")?;
-        if let Some(ref error_code) = self.error_code {
-            write!(f, "{:#x} ", error_code)?;
-        }
-        write!(f, "occurred in {}", self.function_name)?;
-        if let Some(ref message) = self.message {
-            write!(f, ": {}", message.trim())?;
-        }
-        Ok(())
-    }
-}
-
-impl Error for WindowsError {
-    fn description(&self) -> &str {
-        "an error occured in calling Windows API"
-    }
-}
-
-impl WindowsError {
-    pub fn from_function_name(function_name: &'static str) -> Self {
-        WindowsError {
-            function_name,
-            error_code: None,
-            message: None,
-        }
-    }
-
-    pub fn from_error_code(function_name: &'static str, error_code: DWORD) -> Self {
-        WindowsError {
-            function_name,
-            error_code: Some(error_code),
-            message: get_error_message(error_code),
-        }
-    }
-
-    pub fn from_last_error(function_name: &'static str) -> Self {
-        let error_code = get_last_error();
-        Self::from_error_code(function_name, error_code)
-    }
-}
-
-fn get_error_message(error_code: DWORD) -> Option<String> {
-    let mut pbuf: LPWSTR = ptr::null_mut();
-
-    let result_len = unsafe {
-        kernel32::FormatMessageW(
-            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            ptr::null(),
-            error_code,
-            0,
-            &mut pbuf as *mut LPWSTR as LPWSTR,
-            1,
-            ptr::null_mut()
-        )
-    };
-
-    let result = match result_len {
-        0 => None,
-        result_len => {
-            let s = unsafe { slice::from_raw_parts(pbuf, result_len as usize) };
-            Some(String::from_utf16_lossy(s))
-        }
-    };
-
-    if !pbuf.is_null() {
-        unsafe { kernel32::LocalFree(pbuf as HLOCAL); }
-    }
-
-    result
-}
-
-pub fn find_main_window(process_id: u32) -> Result<HWND, WindowsError> {
+pub fn find_main_window(process_id: u32) -> io::Result<HWND> {
     struct LParamData {
         process_id: u32,
         main_window_handle: HWND,
@@ -142,14 +62,14 @@ pub fn find_main_window(process_id: u32) -> Result<HWND, WindowsError> {
         let error_code = get_last_error();
         if error_code != 0 {
             // エラーコード 0 は lpEnumFunc が FALSE を返しただけ
-            return Err(WindowsError::from_error_code("EnumWindows", error_code));
+            return Err(io::Error::from_raw_os_error(error_code as i32));
         }
     }
 
     Ok(lparam.main_window_handle)
 }
 
-pub fn wait_process_async(process_id: u32) -> Result<ProcessFuture, WindowsError> {
+pub fn wait_process_async(process_id: u32) -> io::Result<ProcessFuture> {
     let process_handle = open_process(process_id, SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION)?;
 
     let (sender, receiver) = oneshot::channel();
@@ -173,7 +93,7 @@ pub struct ProcessFuture {
 
 impl Future for ProcessFuture {
     type Item = process::ExitStatus;
-    type Error = WindowsError;
+    type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.receiver.poll() {
@@ -185,7 +105,7 @@ impl Future for ProcessFuture {
                 if success != FALSE {
                     Ok(Async::Ready(process::ExitStatus::from_raw(exit_code as u32)))
                 } else {
-                    Err(WindowsError::from_last_error("GetExitCodeProcess"))
+                    Err(io::Error::last_os_error())
                 }
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),
@@ -219,20 +139,20 @@ impl Drop for WaitHandle {
     }
 }
 
-fn open_process(process_id: u32, desired_access: DWORD) -> Result<ProcessHandle, WindowsError> {
+fn open_process(process_id: u32, desired_access: DWORD) -> io::Result<ProcessHandle> {
     let handle = unsafe {
         kernel32::OpenProcess(desired_access, FALSE, process_id as DWORD)
     };
 
     if handle.is_null() { 
-        Err(WindowsError::from_last_error("OpenProcess"))
+        Err(io::Error::last_os_error())
     } else {
         Ok(ProcessHandle(handle))
     }
 }
 
 fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, context: PVOID, timeout_millis: ULONG)
-    -> Result<WaitHandle, WindowsError>
+    -> io::Result<WaitHandle>
 {
     let mut wait_object: HANDLE = unsafe { mem::uninitialized() };
     let success = unsafe {
@@ -251,7 +171,7 @@ fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, c
         mem::forget(process_handle); // CloseHandle しない
         Ok(WaitHandle { wait_object, process_handle: ph })
     } else {
-        Err(WindowsError::from_last_error("RegisterWaitForSingleObject"))
+        Err(io::Error::last_os_error())
     }
 }
 
@@ -260,7 +180,7 @@ extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired:
     sender.send(()).ok();
 }
 
-pub fn get_process_path(process_id: u32) -> Result<ffi::OsString, WindowsError> {
+pub fn get_process_path(process_id: u32) -> io::Result<ffi::OsString> {
     let process_handle = open_process(process_id, PROCESS_QUERY_INFORMATION)?;
     let buffer = HeapArray::<WCHAR>::alloc(1024);
     let len = unsafe {
@@ -275,7 +195,7 @@ pub fn get_process_path(process_id: u32) -> Result<ffi::OsString, WindowsError> 
         let s = unsafe { &buffer.as_slice()[..(len as usize)] };
         Ok(ffi::OsString::from_wide(s))
     } else {
-        Err(WindowsError::from_last_error("K32GetModuleFileNameExW"))
+        Err(io::Error::last_os_error())
     }
 }
 
@@ -350,12 +270,12 @@ pub struct ProcessIterator {
 }
 
 impl ProcessIterator {
-    pub fn new() -> Result<Self, WindowsError> {
+    pub fn new() -> io::Result<Self> {
         let handle = unsafe {
             kernel32::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
         };
         if handle.is_null() || handle == INVALID_HANDLE_VALUE {
-            Err(WindowsError::from_last_error("CreateToolhelp32Snapshot"))
+            Err(io::Error::last_os_error())
         } else {
             Ok(ProcessIterator {
                 snapshot_handle: handle,
@@ -372,7 +292,7 @@ impl Drop for ProcessIterator {
 }
 
 impl Iterator for ProcessIterator {
-    type Item = Result<ProcessInfo, WindowsError>;
+    type Item = io::Result<ProcessInfo>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut entry =  PROCESSENTRY32W {
@@ -388,13 +308,13 @@ impl Iterator for ProcessIterator {
             szExeFile: [0; MAX_PATH],
         };
 
-        let (success, func_name) = unsafe {
+        let success = unsafe {
             let lppe = &mut entry as LPPROCESSENTRY32W;
             if self.is_first {
-                (kernel32::Process32FirstW(self.snapshot_handle, lppe), "Process32FirstW")
+                (kernel32::Process32FirstW(self.snapshot_handle, lppe))
             }
             else {
-                (kernel32::Process32NextW(self.snapshot_handle, lppe), "Process32NextW")
+                (kernel32::Process32NextW(self.snapshot_handle, lppe))
             }
         };
 
@@ -404,7 +324,7 @@ impl Iterator for ProcessIterator {
             } else {
                 match get_last_error() {
                     ERROR_NO_MORE_FILES => None,
-                    x => Some(Err(WindowsError::from_error_code(func_name, x)))
+                    x => Some(Err(io::Error::from_raw_os_error(x as i32)))
                 }
             };
 
@@ -413,9 +333,9 @@ impl Iterator for ProcessIterator {
     }
 }
 
-pub fn kill_process(process_id: u32) -> Result<(), WindowsError> {
+pub fn kill_process(process_id: u32) -> io::Result<()> {
     let handle = open_process(process_id, PROCESS_TERMINATE)?;
     let success = unsafe { kernel32::TerminateProcess(handle.0, 1) };
     if success != FALSE { Ok(()) }
-    else { Err(WindowsError::from_last_error("TerminateProcess")) }
+    else { Err(io::Error::last_os_error()) }
 }
