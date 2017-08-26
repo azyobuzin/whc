@@ -1,0 +1,4 @@
+[submodule "rust/miow"]
+	path = rust/miow
+	url = git@github.com:azyobuzin/miow.git
+	branch = wine

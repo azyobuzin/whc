@@ -46,7 +46,7 @@ fn main() {
 
     let sigint_future = sigint_helper::wait_sigint_async().unwrap()
         .and_then(|_| {
-            println!("Terminating");
+            println!("サーバーを停止しています。");
             Ok(())
         });
 
@@ -57,17 +57,19 @@ fn main() {
                 None => (Box::new(boxed_err(future::result(find_wagahigh()))), false),
             };
 
-        find_future
-            .and_then(move |process| from_result_boxed(
+        find_future.and_then(move |process| {
+            println!("Process ID: {}", process.process_id());
+            from_result_boxed(
                 process.wait_async(kill_when_exit)
                     .map(|f| f.and_then(|exit_status| {
-                            match exit_status.code() {
-                                Some(x) => println!("Exit code: {}", x),
-                                None => println!("Terminated"),
-                            }
-                            Ok(())
+                        match exit_status.code() {
+                            Some(x) => println!("ワガママハイスペック.exe が終了コード {} で終了しました。", x),
+                            None => println!("ワガママハイスペック.exe が終了されました。"), // Windows は必ず終了コードがある
+                        }
+                        Ok(())
                     }))
-            ))
+            )
+        })
     };
 
     let main_future = sigint_future.select2(process_future)

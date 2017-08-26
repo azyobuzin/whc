@@ -8,9 +8,12 @@ publish = false
 [dependencies]
 clap = "2.26.0"
 ctrlc = "3.0.2"
-futures = "0.1.14"
+futures = "0.1.15"
 gdi32-sys = "0.2.0"
 kernel32-sys = "0.2.2"
 tokio-core = "0.1.9"
 user32-sys = "0.2.0"
 winapi = "0.2.8"
+
+[patch.crates-io]
+miow = { path = "../miow" }
