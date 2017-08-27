@@ -1,26 +1,15 @@
-#![feature(nonzero)]
-#![allow(dead_code)] // 邪魔なので一旦
-
-extern crate core;
 #[macro_use]
 extern crate clap;
-extern crate futures;
-#[macro_use]
-extern crate lazy_static;
-extern crate tokio_core;
-extern crate void;
-
-pub mod future_helper;
-pub mod wagahigh;
-pub mod server;
-pub mod sigint_helper;
+extern crate toa;
 
 use std::error::Error;
 use std::process;
-use futures::Future;
-use futures::future;
-use future_helper::*;
-use wagahigh::*;
+use toa::futures::Future;
+use toa::futures::future;
+use toa::future_helper::*;
+use toa::sigint_helper;
+use toa::tokio_core;
+use toa::wagahigh::*;
 
 type BoxedFuture<T> = Box<Future<Item = T, Error = Box<Error>>>;
 
@@ -72,9 +61,9 @@ fn run(matches: clap::ArgMatches) -> bool {
 
         find_future.and_then(move |process| {
             println!("Process ID: {}", process.process_id());
-            wagahigh::windows_helper::set_cursor_pos(300, 300).unwrap();
+            windows_helper::set_cursor_pos(300, 300).unwrap();
             loop {
-                println!("{:?}", wagahigh::windows_helper::get_cursor_res_name(/*process.window_handle()*/));
+                println!("{:?}", windows_helper::get_cursor_res_name(/*process.window_handle()*/));
                 std::thread::sleep(std::time::Duration::from_secs(1));
             }
             from_result_boxed(
