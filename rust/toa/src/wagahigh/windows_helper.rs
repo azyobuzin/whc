@@ -415,6 +415,92 @@ pub fn get_cursor_res_name() -> io::Result<ffi::OsString> {
     }
 }
 
+pub fn get_cursor_bitmap() -> io::Result<Vec<u8>> {
+    let mut cursor_info = CURSORINFO {
+        cbSize: mem::size_of::<CURSORINFO>() as DWORD,
+        flags: 0,
+        hCursor: ptr::null_mut(),
+        ptScreenPos: POINT { x: 0, y: 0 }
+    };
+
+    err_if_zero(unsafe { GetCursorInfo(&mut cursor_info as PCURSORINFO) })?;
+
+    let mut icon_info = ICONINFOEXW {
+        cbSize: mem::size_of::<ICONINFOEXW>() as DWORD,
+        fIcon: FALSE,
+        xHotspot: 0,
+        yHotspot: 0,
+        hbmMask: ptr::null_mut(),
+        hbmColor: ptr::null_mut(),
+        wResID: 0,
+        szModName: [0; MAX_PATH],
+        szResName: [0; MAX_PATH],
+    };
+
+    let success = unsafe {
+        GetIconInfoExW(cursor_info.hCursor, &mut icon_info as PICONINFOEXW)
+    };
+
+    if success == FALSE {
+        return Err(io::Error::new(io::ErrorKind::Other, "GetIconInfoExW"));
+    }
+
+    let bitmap_handle =
+        if icon_info.hbmColor.is_null() { icon_info.hbmMask }
+        else { icon_info.hbmMask };
+
+    let mut bmp: BITMAP = unsafe { mem::uninitialized() };
+
+    let success = unsafe {
+        gdi32::GetObjectW(
+            bitmap_handle as HGDIOBJ,
+            mem::size_of::<BITMAP>() as c_int,
+            &mut bmp as *mut _ as LPVOID
+        )
+    };
+
+    if success == 0 {
+        return Err(io::Error::new(io::ErrorKind::Other, "GetObjectW"));
+    }
+
+    let mut bmi = BITMAPINFOHEADER {
+        biSize: mem::size_of::<BITMAPINFOHEADER>() as DWORD,
+        biWidth: bmp.bmWidth,
+        biHeight: bmp.bmHeight,
+        biPlanes: 1,
+        biBitCount: 32,
+        biCompression: BI_RGB,
+        biSizeImage: 0,
+        biXPelsPerMeter: 0,
+        biYPelsPerMeter: 0,
+        biClrUsed: 0,
+        biClrImportant: 0,
+    };
+
+    let buf_size = (bmp.bmWidth as usize) * (bmp.bmHeight as usize) * 4;
+    let mut buf = Vec::<u8>::with_capacity(buf_size);
+    unsafe { buf.set_len(buf_size); }
+
+    let hdc = unsafe { user32::GetDC(ptr::null_mut()) };
+
+    if hdc.is_null() {
+        return Err(io::Error::new(io::ErrorKind::Other, "GetDC"));
+     }
+
+    let success = unsafe {
+        gdi32::GetDIBits(hdc, bitmap_handle, 0, bmp.bmHeight as UINT,
+            buf.as_mut_ptr() as LPVOID, &mut bmi as *mut _ as LPBITMAPINFO, DIB_RGB_COLORS)
+    };
+
+    unsafe { user32::ReleaseDC(ptr::null_mut(), hdc); }
+
+    match success {
+        0 => Err(io::Error::new(io::ErrorKind::Other, "GetDIBits")),
+        87 /* ERROR_INVALID_PARAMETER */ => Err(io::Error::new(io::ErrorKind::InvalidInput, "GetDIBits")),
+        _ => Ok(buf),
+    }
+}
+
 #[repr(C)]
 #[allow(non_snake_case)]
 struct CURSORINFO {
