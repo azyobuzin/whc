@@ -2,7 +2,6 @@ use core::nonzero::Zeroable;
 use std::collections::HashMap;
 use std::ffi;
 use std::fmt;
-use std::heap::{Alloc, Heap};
 use std::io;
 use std::mem;
 use std::os::windows::prelude::*;
@@ -179,51 +178,21 @@ extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired:
 
 pub fn get_process_path(process_id: u32) -> io::Result<ffi::OsString> {
     let process_handle = open_process(process_id, PROCESS_QUERY_INFORMATION)?;
-    let buffer = HeapArray::<WCHAR>::alloc(1024);
+
+    const BUFFER_SIZE: usize = 1024;
+    let mut buffer = Vec::<WCHAR>::with_capacity(BUFFER_SIZE);
+    unsafe { buffer.set_len(BUFFER_SIZE); }
+
     let len = err_if_zero(unsafe {
         kernel32::K32GetModuleFileNameExW(
             process_handle.0,
             ptr::null_mut(),
-            buffer.as_ptr(),
-            buffer.len() as DWORD
+            buffer.as_mut_ptr(),
+            BUFFER_SIZE as DWORD
         )
     })?;
 
-    let s = unsafe { &buffer.as_slice()[..(len as usize)] };
-    Ok(ffi::OsString::from_wide(s))
-}
-
-struct HeapArray<T> {
-    p: ptr::Unique<T>,
-    n: usize,
-}
-
-impl<T> HeapArray<T> {
-    fn alloc(n: usize) -> Self {
-        let p = Heap.alloc_array(n).unwrap();
-        HeapArray { p, n }
-    }
-
-    fn as_ptr(&self) -> *mut T {
-        self.p.as_ptr()
-    }
-
-    fn len(&self) -> usize {
-        self.n
-    }
-
-    // 未初期化領域も slice にできてしまうので unsafe
-    unsafe fn as_slice(&self) -> &[T] {
-        slice::from_raw_parts(self.p.as_ptr(), self.n)
-    }
-}
-
-impl<T> Drop for HeapArray<T> {
-    fn drop(&mut self) {
-        unsafe {
-            Heap.dealloc_array(self.p, self.n).ok();
-        }
-    }
+    Ok(ffi::OsString::from_wide(&buffer[..(len as usize)]))
 }
 
 fn slice_to_zero<T: Zeroable>(s: &[T]) -> &[T] {

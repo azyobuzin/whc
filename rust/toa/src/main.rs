@@ -1,4 +1,4 @@
-#![feature(allocator_api, nonzero, unique)]
+#![feature(nonzero)]
 #![allow(dead_code)] // 邪魔なので一旦
 
 extern crate core;
