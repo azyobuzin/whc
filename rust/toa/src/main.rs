@@ -1,9 +1,12 @@
-#![feature(allocator_api, unique)]
+#![feature(allocator_api, nonzero, unique)]
 #![allow(dead_code)] // 邪魔なので一旦
 
+extern crate core;
 #[macro_use]
 extern crate clap;
 extern crate futures;
+#[macro_use]
+extern crate lazy_static;
 extern crate tokio_core;
 extern crate void;
 
@@ -13,7 +16,7 @@ pub mod server;
 pub mod sigint_helper;
 
 use std::error::Error;
-use clap::{App, Arg};
+use std::process;
 use futures::Future;
 use futures::future;
 use future_helper::*;
@@ -22,6 +25,8 @@ use wagahigh::*;
 type BoxedFuture<T> = Box<Future<Item = T, Error = Box<Error>>>;
 
 fn main() {
+    use clap::{App, Arg};
+
     let matches = App::new("Toa")
         .version(crate_version!())
         .author(crate_authors!("\n"))
@@ -42,6 +47,13 @@ fn main() {
         )
         .get_matches();
 
+    if !run(matches) {
+        process::exit(1);
+    }
+}
+
+// main では process::exit が発生するので、 drop が必要な処理を隔離
+fn run(matches: clap::ArgMatches) -> bool {
     let mut core = tokio_core::reactor::Core::new().unwrap();
     let handle = core.handle();
 
@@ -60,6 +72,11 @@ fn main() {
 
         find_future.and_then(move |process| {
             println!("Process ID: {}", process.process_id());
+            wagahigh::windows_helper::set_cursor_pos(300, 300).unwrap();
+            loop {
+                println!("{:?}", wagahigh::windows_helper::get_cursor_res_name(/*process.window_handle()*/));
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
             from_result_boxed(
                 process.wait_async(kill_when_exit)
                     .map(|f| f.and_then(|exit_status| {
@@ -82,5 +99,8 @@ fn main() {
 
     if let Err(x) = core.run(main_future) {
         println!("{}", x);
+        false
+    } else {
+        true
     }
 }

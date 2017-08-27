@@ -4,6 +4,6 @@ extern crate user32;
 extern crate winapi;
 
 mod process;
-mod windows_helper;
+pub mod windows_helper;
 
 pub use self::process::*;

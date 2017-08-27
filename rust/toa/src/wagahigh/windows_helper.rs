@@ -1,3 +1,5 @@
+use core::nonzero::Zeroable;
+use std::collections::HashMap;
 use std::ffi;
 use std::fmt;
 use std::heap::{Alloc, Heap};
@@ -10,6 +12,7 @@ use std::ptr;
 use std::slice;
 use futures::{Async, Future, Poll};
 use futures::sync::oneshot;
+use super::gdi32;
 use super::kernel32;
 use super::user32;
 use super::winapi::*;
@@ -17,6 +20,14 @@ use super::winapi::*;
 /// `GetLastError` はどう転んでも安全なので unsafe 外し
 pub fn get_last_error() -> DWORD {
     unsafe { kernel32::GetLastError() }
+}
+
+fn err_if_zero<T: Zeroable>(v: T) -> io::Result<T> {
+    if v.is_zero() {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(v)
+    }
 }
 
 pub fn find_main_window(process_id: u32) -> io::Result<HWND> {
@@ -99,14 +110,10 @@ impl Future for ProcessFuture {
         match self.receiver.poll() {
             Ok(Async::Ready(_)) => {
                 let mut exit_code: DWORD = unsafe { mem::uninitialized() };
-                let success = unsafe {
+                err_if_zero(unsafe {
                     kernel32::GetExitCodeProcess(self.wait_handle.process_handle, &mut exit_code as LPDWORD)
-                };
-                if success != FALSE {
-                    Ok(Async::Ready(process::ExitStatus::from_raw(exit_code as u32)))
-                } else {
-                    Err(io::Error::last_os_error())
-                }
+                })?;
+                Ok(Async::Ready(process::ExitStatus::from_raw(exit_code as u32)))
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(_) => unreachable!(), // cancel は呼び出さない
@@ -140,22 +147,16 @@ impl Drop for WaitHandle {
 }
 
 fn open_process(process_id: u32, desired_access: DWORD) -> io::Result<ProcessHandle> {
-    let handle = unsafe {
+    err_if_zero(unsafe {
         kernel32::OpenProcess(desired_access, FALSE, process_id as DWORD)
-    };
-
-    if handle.is_null() { 
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(ProcessHandle(handle))
-    }
+    }).map(ProcessHandle)
 }
 
 fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, context: PVOID, timeout_millis: ULONG)
     -> io::Result<WaitHandle>
 {
     let mut wait_object: HANDLE = unsafe { mem::uninitialized() };
-    let success = unsafe {
+    err_if_zero(unsafe {
         kernel32::RegisterWaitForSingleObject(
             &mut wait_object as PHANDLE,
             process_handle.0,
@@ -164,15 +165,11 @@ fn register_wait(process_handle: ProcessHandle, callback: WAITORTIMERCALLBACK, c
             timeout_millis,
             WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE
         )
-    };
+    })?;
 
-    if success != FALSE {
-        let ph = process_handle.0;
-        mem::forget(process_handle); // CloseHandle しない
-        Ok(WaitHandle { wait_object, process_handle: ph })
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    let ph = process_handle.0;
+    mem::forget(process_handle); // CloseHandle しない
+    Ok(WaitHandle { wait_object, process_handle: ph })
 }
 
 extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired: BOOLEAN) {
@@ -183,20 +180,17 @@ extern "system" fn process_wait_callback(parameter: PVOID, _timer_or_wait_fired:
 pub fn get_process_path(process_id: u32) -> io::Result<ffi::OsString> {
     let process_handle = open_process(process_id, PROCESS_QUERY_INFORMATION)?;
     let buffer = HeapArray::<WCHAR>::alloc(1024);
-    let len = unsafe {
+    let len = err_if_zero(unsafe {
         kernel32::K32GetModuleFileNameExW(
             process_handle.0,
             ptr::null_mut(),
             buffer.as_ptr(),
             buffer.len() as DWORD
         )
-    };
-    if len > 0 {
-        let s = unsafe { &buffer.as_slice()[..(len as usize)] };
-        Ok(ffi::OsString::from_wide(s))
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    })?;
+
+    let s = unsafe { &buffer.as_slice()[..(len as usize)] };
+    Ok(ffi::OsString::from_wide(s))
 }
 
 struct HeapArray<T> {
@@ -232,6 +226,11 @@ impl<T> Drop for HeapArray<T> {
     }
 }
 
+fn slice_to_zero<T: Zeroable>(s: &[T]) -> &[T] {
+    s.iter().position(Zeroable::is_zero)
+        .map_or(s, |i| &s[..i])
+}
+
 pub struct ProcessInfo {
     entry: PROCESSENTRY32W
 }
@@ -242,12 +241,7 @@ impl ProcessInfo {
     }
 
     pub fn exe_file_raw(&self) -> &[WCHAR] {
-        self.entry.szExeFile.iter()
-            .position(|&c| c == 0)
-            .map_or(
-                &self.entry.szExeFile[..],
-                |i| &self.entry.szExeFile[..i]
-            )
+        slice_to_zero(&self.entry.szExeFile)
     }
 
     pub fn exe_file(&self) -> ffi::OsString {
@@ -338,4 +332,190 @@ pub fn kill_process(process_id: u32) -> io::Result<()> {
     let success = unsafe { kernel32::TerminateProcess(handle.0, 1) };
     if success != FALSE { Ok(()) }
     else { Err(io::Error::last_os_error()) }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CursorType {
+    None,
+    Arrow,
+    Hand,
+    No,
+    Other(usize),
+}
+
+impl Default for CursorType {
+    fn default() -> Self { CursorType::None }
+}
+
+pub fn get_cursor_type(/*window_handle: HWND*/) -> io::Result<CursorType> {
+    
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct SyncCursorHandle(HCURSOR);
+    unsafe impl Send for SyncCursorHandle { }
+    unsafe impl Sync for SyncCursorHandle { }
+    fn load_cursor(cursor_name: LPCWSTR) -> SyncCursorHandle {
+        SyncCursorHandle(unsafe {
+            user32::LoadCursorW(ptr::null_mut(), cursor_name)
+        })
+    }
+
+    lazy_static! {
+        static ref CURSOR_TYPE_MAP: HashMap<SyncCursorHandle, CursorType> = {
+            let mut m = HashMap::with_capacity(4);
+            macro_rules! insert { ($k:expr, $v:expr) => (assert!(m.insert($k, $v).is_none())) }
+            insert!(SyncCursorHandle(ptr::null_mut()), CursorType::None);
+            insert!(load_cursor(IDC_ARROW), CursorType::Arrow);
+            insert!(load_cursor(IDC_HAND), CursorType::Hand);
+            insert!(load_cursor(IDC_NO), CursorType::No);
+            for k in m.keys() { println!("{:?}", k); }
+            m
+        };
+    }
+
+    let mut cursor_info = CURSORINFO {
+        cbSize: mem::size_of::<CURSORINFO>() as DWORD,
+        flags: 0,
+        hCursor: ptr::null_mut(),
+        ptScreenPos: POINT { x: 0, y: 0 }
+    };
+
+    let success = unsafe {
+        GetCursorInfo(&mut cursor_info as PCURSORINFO)
+    };
+
+    if success != FALSE {
+        Ok(match CURSOR_TYPE_MAP.get(&SyncCursorHandle(cursor_info.hCursor))
+        {
+            Some(x) => *x,
+            None => CursorType::Other(cursor_info.hCursor as usize)
+        })
+    } else {
+        Err(io::Error::last_os_error())
+    }
+
+    /*
+    fn load_cursor(cursor_name: LPCWSTR) -> HCURSOR {
+        unsafe { user32::LoadCursorW(ptr::null_mut(), cursor_name) }
+    }
+
+    let current_thread_id = unsafe { kernel32::GetCurrentThreadId() };
+    let window_thread_id = unsafe { user32::GetWindowThreadProcessId(window_handle, ptr::null_mut()) };
+    let _attach = AttachThreadInput::attach(current_thread_id, window_thread_id)?;
+    let cursor_handle = unsafe { user32::GetCursor() };
+
+    Ok(
+        if cursor_handle.is_null() { CursorType::None }
+        else if cursor_handle == load_cursor(IDC_ARROW) { CursorType::Arrow }
+        else if cursor_handle == load_cursor(IDC_HAND) { CursorType::Hand }
+        else if cursor_handle == load_cursor(IDC_NO) { CursorType::No }
+        else { CursorType::Other(cursor_handle as usize) }
+    )
+    */
+}
+
+pub fn get_cursor_res_name() -> io::Result<ffi::OsString> {
+    let mut cursor_info = CURSORINFO {
+        cbSize: mem::size_of::<CURSORINFO>() as DWORD,
+        flags: 0,
+        hCursor: ptr::null_mut(),
+        ptScreenPos: POINT { x: 0, y: 0 }
+    };
+
+    err_if_zero(unsafe { GetCursorInfo(&mut cursor_info as PCURSORINFO) })?;
+
+    let mut icon_info = ICONINFOEXW {
+        cbSize: mem::size_of::<ICONINFOEXW>() as DWORD,
+        fIcon: FALSE,
+        xHotspot: 0,
+        yHotspot: 0,
+        hbmMask: ptr::null_mut(),
+        hbmColor: ptr::null_mut(),
+        wResID: 0,
+        szModName: [0; MAX_PATH],
+        szResName: [0; MAX_PATH],
+    };
+
+    let success = unsafe {
+        GetIconInfoExW(cursor_info.hCursor, &mut icon_info as PICONINFOEXW)
+    };
+
+    if success != FALSE {
+        Ok(ffi::OsString::from_wide(slice_to_zero(&icon_info.szResName)))
+    } else {
+        Err(io::Error::new(io::ErrorKind::Other, "GetIconInfoExW"))
+    }
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct CURSORINFO {
+    cbSize: DWORD,
+    flags: DWORD,
+    hCursor: HCURSOR,
+    ptScreenPos: POINT,
+}
+
+type PCURSORINFO = *mut CURSORINFO;
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct ICONINFOEXW {
+    cbSize: DWORD,
+    fIcon: BOOL,
+    xHotspot: DWORD,
+    yHotspot: DWORD,
+    hbmMask: HBITMAP,
+    hbmColor: HBITMAP,
+    wResID: WORD,
+    szModName: [WCHAR; MAX_PATH],
+    szResName: [WCHAR; MAX_PATH],
+}
+
+impl Drop for ICONINFOEXW {
+    fn drop(&mut self) {
+        if !self.hbmMask.is_null() {
+            unsafe { gdi32::DeleteObject(self.hbmMask as HGDIOBJ); }
+        }
+
+        if !self.hbmColor.is_null() {
+            unsafe { gdi32::DeleteObject(self.hbmColor as HGDIOBJ); }
+        }
+    }
+}
+
+type PICONINFOEXW = *mut ICONINFOEXW;
+
+extern "system" {
+    fn GetCursorInfo(pci: PCURSORINFO) -> BOOL;
+    fn GetIconInfoExW(hIcon: HICON, piconinfoex: PICONINFOEXW) -> BOOL;
+}
+
+#[derive(Debug)]
+struct AttachThreadInput {
+    attach_thread_id: DWORD,
+    attach_to_thread_id: DWORD,
+}
+
+impl AttachThreadInput {
+    pub fn attach(attach_thread_id: DWORD, attach_to_thread_id: DWORD) -> io::Result<Self> {
+        err_if_zero(unsafe {
+            user32::AttachThreadInput(attach_thread_id, attach_to_thread_id, TRUE)
+        })?;
+        Ok(AttachThreadInput { attach_thread_id, attach_to_thread_id })
+    }
+}
+
+impl Drop for AttachThreadInput {
+    fn drop(&mut self) {
+        unsafe {
+            user32::AttachThreadInput(self.attach_thread_id, self.attach_to_thread_id, FALSE);
+        }
+    }
+}
+
+pub fn set_cursor_pos(x: i32, y: i32) -> io::Result<()> {
+    err_if_zero(unsafe {
+        user32::SetCursorPos(x as c_int, y as c_int)
+    })?;
+    Ok(())
 }
