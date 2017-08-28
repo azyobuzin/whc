@@ -8,5 +8,6 @@ RUN chown wagahigh:wagahigh /home/wagahigh/.wine/drive_c/toa.exe && \
     chmod a+rx /run_toa.sh
 USER wagahigh
 
+ENV RUST_BACKTRACE=1
 EXPOSE 51203
 CMD /run_toa.sh

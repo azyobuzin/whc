@@ -29,6 +29,14 @@ fn err_if_zero<T: Zeroable>(v: T) -> io::Result<T> {
     }
 }
 
+fn err_if_zero2<T: Zeroable>(v: T, func_name: &str) -> io::Result<T> {
+    if v.is_zero() {
+        Err(io::Error::new(io::ErrorKind::Other, func_name))
+    } else {
+        Ok(v)
+    }
+}
+
 pub fn find_main_window(process_id: u32) -> io::Result<HWND> {
     struct LParamData {
         process_id: u32,
@@ -415,7 +423,7 @@ pub fn get_cursor_res_name() -> io::Result<ffi::OsString> {
     }
 }
 
-pub fn get_cursor_bitmap() -> io::Result<Vec<u8>> {
+pub fn get_cursor_bitmap() -> io::Result<BitmapBuffer> {
     let mut cursor_info = CURSORINFO {
         cbSize: mem::size_of::<CURSORINFO>() as DWORD,
         flags: 0,
@@ -425,48 +433,21 @@ pub fn get_cursor_bitmap() -> io::Result<Vec<u8>> {
 
     err_if_zero(unsafe { GetCursorInfo(&mut cursor_info as PCURSORINFO) })?;
 
-    let mut icon_info = ICONINFOEXW {
-        cbSize: mem::size_of::<ICONINFOEXW>() as DWORD,
-        fIcon: FALSE,
-        xHotspot: 0,
-        yHotspot: 0,
-        hbmMask: ptr::null_mut(),
-        hbmColor: ptr::null_mut(),
-        wResID: 0,
-        szModName: [0; MAX_PATH],
-        szResName: [0; MAX_PATH],
-    };
+    let width = unsafe { user32::GetSystemMetrics(SM_CXCURSOR) };
+    let height = unsafe { user32::GetSystemMetrics(SM_CYCURSOR) };
 
-    let success = unsafe {
-        GetIconInfoExW(cursor_info.hCursor, &mut icon_info as PICONINFOEXW)
-    };
+    let dc = DeviceContextFromWindow::get(ptr::null_mut())?;
+    let gbmp = GdiBitmap::create(dc.hdc(), width, height)?;
 
-    if success == FALSE {
-        return Err(io::Error::new(io::ErrorKind::Other, "GetIconInfoExW"));
-    }
-
-    let bitmap_handle =
-        if icon_info.hbmColor.is_null() { icon_info.hbmMask }
-        else { icon_info.hbmMask };
-
-    let mut bmp: BITMAP = unsafe { mem::uninitialized() };
-
-    let success = unsafe {
-        gdi32::GetObjectW(
-            bitmap_handle as HGDIOBJ,
-            mem::size_of::<BITMAP>() as c_int,
-            &mut bmp as *mut _ as LPVOID
-        )
-    };
-
-    if success == 0 {
-        return Err(io::Error::new(io::ErrorKind::Other, "GetObjectW"));
-    }
+    err_if_zero(unsafe {
+        user32::DrawIconEx(gbmp.hdc(), 0, 0, cursor_info.hCursor,
+            width, height, 0, ptr::null_mut(), DI_NORMAL)
+    })?;
 
     let mut bmi = BITMAPINFOHEADER {
         biSize: mem::size_of::<BITMAPINFOHEADER>() as DWORD,
-        biWidth: bmp.bmWidth,
-        biHeight: bmp.bmHeight,
+        biWidth: width,
+        biHeight: height,
         biPlanes: 1,
         biBitCount: 32,
         biCompression: BI_RGB,
@@ -477,28 +458,31 @@ pub fn get_cursor_bitmap() -> io::Result<Vec<u8>> {
         biClrImportant: 0,
     };
 
-    let buf_size = (bmp.bmWidth as usize) * (bmp.bmHeight as usize) * 4;
+    let buf_size = (width as usize) * (height as usize) * 4;
     let mut buf = Vec::<u8>::with_capacity(buf_size);
     unsafe { buf.set_len(buf_size); }
 
-    let hdc = unsafe { user32::GetDC(ptr::null_mut()) };
-
-    if hdc.is_null() {
-        return Err(io::Error::new(io::ErrorKind::Other, "GetDC"));
-     }
-
     let success = unsafe {
-        gdi32::GetDIBits(hdc, bitmap_handle, 0, bmp.bmHeight as UINT,
+        gdi32::GetDIBits(dc.hdc(), gbmp.hbmp(), 0, height as UINT,
             buf.as_mut_ptr() as LPVOID, &mut bmi as *mut _ as LPBITMAPINFO, DIB_RGB_COLORS)
     };
-
-    unsafe { user32::ReleaseDC(ptr::null_mut(), hdc); }
 
     match success {
         0 => Err(io::Error::new(io::ErrorKind::Other, "GetDIBits")),
         87 /* ERROR_INVALID_PARAMETER */ => Err(io::Error::new(io::ErrorKind::InvalidInput, "GetDIBits")),
-        _ => Ok(buf),
+        _ => Ok(BitmapBuffer {
+            width: width as u32,
+            height: height as u32,
+            buffer: buf,
+        }),
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct BitmapBuffer {
+    pub width: u32,
+    pub height: u32,
+    pub buffer: Vec<u8>,
 }
 
 #[repr(C)]
@@ -565,6 +549,84 @@ impl Drop for AttachThreadInput {
         unsafe {
             user32::AttachThreadInput(self.attach_thread_id, self.attach_to_thread_id, FALSE);
         }
+    }
+}
+
+#[derive(Debug)]
+struct DeviceContextFromWindow {
+    hwnd: HWND,
+    hdc: HDC,
+}
+
+impl DeviceContextFromWindow {
+    pub fn get(hwnd: HWND) -> io::Result<DeviceContextFromWindow> {
+        let hdc = err_if_zero2(unsafe { user32::GetDC(hwnd) }, "GetDC")?;
+        Ok(DeviceContextFromWindow { hwnd, hdc })
+    }
+
+    pub fn hdc(&self) -> HDC { self.hdc }
+}
+
+impl Drop for DeviceContextFromWindow {
+    fn drop(&mut self) {
+        unsafe { user32::ReleaseDC(self.hwnd, self.hdc); }
+    }
+}
+
+#[derive(Debug)]
+struct GdiBitmap {
+    hdc: HDC,
+    hbmp: HBITMAP,
+}
+
+impl GdiBitmap {
+    pub fn create(hdc: HDC, width: c_int, height: c_int) -> io::Result<GdiBitmap> {
+        let compat_dc = err_if_zero2(unsafe { gdi32::CreateCompatibleDC(hdc) }, "CreateCompatibleDC")?;
+
+        let hbmp = match err_if_zero2(unsafe { gdi32::CreateCompatibleBitmap(hdc, width, height) }, "CreateCompatibleBitmap") {
+            Ok(x) => x,
+            Err(x) => {
+                unsafe { gdi32::DeleteDC(compat_dc); }
+                return Err(x);
+            }
+        };
+
+        unsafe { gdi32::SelectObject(compat_dc, hbmp as HGDIOBJ); }
+
+        Ok(GdiBitmap { hdc: compat_dc, hbmp })
+    }
+
+    pub fn hdc(&self) -> HDC { self.hdc }
+    pub fn hbmp(&self) -> HBITMAP { self.hbmp }
+}
+
+impl Drop for GdiBitmap {
+    fn drop(&mut self) {
+        unsafe { 
+            gdi32::DeleteDC(self.hdc); // SelectObject してるので先にこっちを消す
+            gdi32::DeleteObject(self.hbmp as HGDIOBJ);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Brush {
+    hbr: HBRUSH,
+}
+
+impl Brush {
+    pub fn create_solid_brush(r: u8, g: u8, b: u8, a: u8) -> io::Result<Brush> {
+        let color = (r as u32) | (g as u32) << 8 | (b as u32) << 16 | (a as u32) << 24;
+        let hbr = err_if_zero2(unsafe { gdi32::CreateSolidBrush(color as COLORREF) }, "CreateSolidBrush")?;
+        Ok(Brush { hbr })
+    }
+
+    pub fn hbr(&self) -> HBRUSH { self.hbr }
+}
+
+impl Drop for Brush {
+    fn drop(&mut self) {
+        unsafe { gdi32::DeleteObject(self.hbr as HGDIOBJ); }
     }
 }
 
