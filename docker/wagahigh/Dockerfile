@@ -14,7 +14,7 @@ RUN dpkg --add-architecture i386 && \
     wget -O - https://dl.winehq.org/wine-builds/Release.key | apt-key add - && \
     apt-add-repository -y https://dl.winehq.org/wine-builds/ubuntu/ && \
     apt-get update -y && \
-    apt-get install -y locales make winehq-devel xvfb vnc4server xdotool && \
+    apt-get install -y locales make winehq-devel xvfb x11vnc xdotool && \
     rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen ja_JP.UTF-8
@@ -28,18 +28,18 @@ ENV LANG="ja_JP.UTF-8" \
     W_OPT_UNATTENDED=1
 
 # パッケージリポジトリの winetricks は古いので直接ダウンロード
-RUN wget -O - https://github.com/Winetricks/winetricks/archive/20170614.tar.gz | tar -xzf - && \
-    make -C winetricks-20170614 install && \
-    rm -rf winetricks-20170614
+RUN wget -O - https://github.com/Winetricks/winetricks/archive/20170823.tar.gz | tar -xzf - && \
+    make -C winetricks-20170823 install && \
+    rm -rf winetricks-20170823
+
+WORKDIR /home/wagahigh
+
+# Wine は通常ユーザーで実行する
+RUN su -c 'winetricks wenquanyi' wagahigh
 
 COPY run_wagahigh.sh /
 RUN chmod a+rx /run_wagahigh.sh
 
-# Wine は通常ユーザーで実行する
 USER wagahigh
-WORKDIR /home/wagahigh
-
-RUN winetricks wenquanyi
-
 EXPOSE 5900 6000
 CMD /run_wagahigh.sh
