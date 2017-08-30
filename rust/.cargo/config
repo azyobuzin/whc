@@ -1,6 +1,0 @@
-[build]
-target = "i686-pc-windows-msvc"
-
-[target.'cfg(windows)']
-# Wine 上で動かすときに VC++ ランタイム入れたくないので
-rustflags = ["-C", "target-feature=+crt-static"]
