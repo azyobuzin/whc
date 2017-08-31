@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Xvfb :0 -screen 0 640x394x24 &
+Xvfb :0 -screen 0 640x394x24 -listen tcp -ac &
 x11vnc -display WAIT:0 -shared -forever -q &
 sleep 0.5
 
