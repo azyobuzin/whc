@@ -13,4 +13,10 @@
             this.Data = data;
         }
     }
+
+    public enum GetImageFormat : byte
+    {
+        XYPixmap = 1,
+        ZPixmap = 2,
+    }
 }

@@ -19,6 +19,8 @@ namespace WagahighChoices.Toa.X11
 
         private ushort _sequenceNumber = 1;
 
+        private byte[] _requestBuffer;
+
         private SetupResponseData _setup;
 
         public string ServerVendor { get; private set; }
@@ -51,6 +53,25 @@ namespace WagahighChoices.Toa.X11
 
         public void Dispose() => this.Dispose(true);
 
+        private static void EnsureBufferSize(ref byte[] buffer, int size)
+        {
+            if (buffer.Length >= size) return;
+
+            var v = (uint)size;
+            // http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+            v--;
+            v |= v >> 1;
+            v |= v >> 2;
+            v |= v >> 4;
+            v |= v >> 8;
+            v |= v >> 16;
+            v++;
+            var newSize = (int)v;
+            newSize = newSize < size ? int.MaxValue : newSize;
+
+            buffer = new byte[newSize];
+        }
+
         protected async Task SendRequestAsync(Func<Task> sendAction)
         {
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
@@ -65,8 +86,8 @@ namespace WagahighChoices.Toa.X11
             }
         }
 
-        /// <param name="replyAction">引数の <c>byte[]</c> は後で再利用するので外部に持ち出さないように</param>
-        protected async Task<T> SendRequestAsync<T>(Func<Task> sendAction, Func<byte[], byte[], ValueTask<T>> replyAction)
+        /// <param name="readReply">引数の <c>byte[]</c> は後で再利用するので外部に持ち出さないように</param>
+        protected async Task<T> SendRequestAsync<T>(int requestSize, Func<byte[], Task> createRequest, Func<byte[], byte[], ValueTask<T>> readReply)
         {
             var tcs = new TaskCompletionSource<T>();
 
@@ -80,7 +101,7 @@ namespace WagahighChoices.Toa.X11
 
                 try
                 {
-                    tcs.TrySetResult(await replyAction(replyHeader, replyContent).ConfigureAwait(false));
+                    tcs.TrySetResult(await readReply(replyHeader, replyContent).ConfigureAwait(false));
                 }
                 catch (Exception ex)
                 {
@@ -96,7 +117,10 @@ namespace WagahighChoices.Toa.X11
                 if (!this._replyActions.TryAdd(sequenceNumber, action))
                     throw new InvalidOperationException("Duplicated sequence number");
 
-                await sendAction().ConfigureAwait(false);
+                EnsureBufferSize(ref this._requestBuffer, requestSize);
+                await createRequest(this._requestBuffer).ConfigureAwait(false);
+                await this.Stream.WriteAsync(this._requestBuffer, 0, requestSize).ConfigureAwait(false);
+
                 this._sequenceNumber++;
             }
             catch
@@ -153,77 +177,73 @@ namespace WagahighChoices.Toa.X11
         {
             SetupResponseHeader responseHeader;
 
-            using (var rentedArray = ArrayPool.Rent<byte>(SetupRequestDataSize))
+            var buf = new byte[8192]; // Connection Setup のレスポンスがでかい
+
+            unsafe
             {
-                var buf = rentedArray.Array;
-
-                unsafe
+                fixed (byte* p = buf)
                 {
-                    fixed (byte* p = buf)
+                    *(SetupRequestData*)p = new SetupRequestData()
                     {
-                        *(SetupRequestData*)p = new SetupRequestData()
-                        {
-                            ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42,
-                            ProtocolMajorVersion = 11,
-                            ProtocolMinorVersion = 0,
-                            LengthOfAuthorizationProtocolName = 0,
-                            LengthOfAuthorizationProtocolData = 0,
-                        };
-                    }
+                        ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42,
+                        ProtocolMajorVersion = 11,
+                        ProtocolMinorVersion = 0,
+                        LengthOfAuthorizationProtocolName = 0,
+                        LengthOfAuthorizationProtocolData = 0,
+                    };
                 }
+            }
 
-                await this.Stream.WriteAsync(buf, 0, SetupRequestDataSize).ConfigureAwait(false);
+            await this.Stream.WriteAsync(buf, 0, SetupRequestDataSize).ConfigureAwait(false);
 
-                await this.ReadExactAsync(buf, SetupResponseHeaderSize).ConfigureAwait(false);
+            await this.ReadExactAsync(buf, SetupResponseHeaderSize).ConfigureAwait(false);
 
-                unsafe
+            unsafe
+            {
+                fixed (byte* p = buf)
                 {
-                    fixed (byte* p = buf)
-                    {
-                        responseHeader = *(SetupResponseHeader*)p;
-                    }
+                    responseHeader = *(SetupResponseHeader*)p;
                 }
             }
 
             var additionalDataLength = responseHeader.LengthOfAdditionalData * 4;
-            using (var rentedArray = ArrayPool.Rent<byte>(additionalDataLength))
-            {
-                var buf = rentedArray.Array;
-                await this.ReadExactAsync(buf, additionalDataLength).ConfigureAwait(false);
 
-                switch (responseHeader.Status)
-                {
-                    case 0: // Failed
-                        throw new X11Exception(string.Format(
-                            "The server (X{0}.{1}) refused the connection: {2}",
-                            responseHeader.ProtocolMajorVersion,
-                            responseHeader.ProtocolMinorVersion,
-                            ReadString8(buf, 0, responseHeader.LengthOfReasonIfFailed)
-                        ));
-                    case 2: // Authenticate
-                        throw new X11Exception("Authentication is required: "
-                            + ReadString8(buf, 0, additionalDataLength).TrimEnd('\0'));
-                    case 1: // Success
-                        HandleAccepted(buf);
-                        break;
-                    default:
-                        throw new X11Exception("Unexpected response status");
-                }
+            EnsureBufferSize(ref buf, additionalDataLength);
+            this._requestBuffer = buf;
+
+            await this.ReadExactAsync(buf, additionalDataLength).ConfigureAwait(false);
+
+            switch (responseHeader.Status)
+            {
+                case 0: // Failed
+                    throw new X11Exception(string.Format(
+                        "The server (X{0}.{1}) refused the connection: {2}",
+                        responseHeader.ProtocolMajorVersion,
+                        responseHeader.ProtocolMinorVersion,
+                        ReadString8(buf, 0, responseHeader.LengthOfReasonIfFailed)
+                    ));
+                case 2: // Authenticate
+                    throw new X11Exception("Authentication is required: "
+                        + ReadString8(buf, 0, additionalDataLength).TrimEnd('\0'));
+                case 1: // Success
+                    break;
+                default:
+                    throw new X11Exception("Unexpected response status");
             }
 
-            unsafe void HandleAccepted(byte[] additionalData)
+            if (additionalDataLength < SetupResponseDataSize)
+                throw new X11Exception("Too small response");
+
+            Screen[] screens;
+            var visualTypes = new Dictionary<uint, VisualType>();
+
+            unsafe
             {
-                if (additionalDataLength < SetupResponseDataSize)
-                    throw new X11Exception("Too small response");
-
-                Screen[] screens;
-                var visualTypes = new Dictionary<uint, VisualType>();
-
-                fixed (byte* p = additionalData)
+                fixed (byte* p = buf)
                 {
                     this._setup = *(SetupResponseData*)p;
 
-                    this.ServerVendor = ReadString8(additionalData, SetupResponseDataSize, this._setup.LengthOfVendor);
+                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, this._setup.LengthOfVendor);
 
                     screens = new Screen[this._setup.NumberOfScreens];
                     var screenIndex = 0;
@@ -261,16 +281,17 @@ namespace WagahighChoices.Toa.X11
                         }
                     }
                 }
-
-                this.Screens = screens;
-                this._visualTypes = visualTypes;
             }
+
+            this.Screens = screens;
+            this._visualTypes = visualTypes;
         }
 
         private async void ReceiveWorker()
         {
             const int eventSize = 32;
             var eventBuffer = new byte[eventSize];
+            var replyBuffer = new byte[256];
 
             try
             {
@@ -297,15 +318,13 @@ namespace WagahighChoices.Toa.X11
                     {
                         var replyLength = header.ReplyLength * 4;
 
-                        using (var rentedArray = ArrayPool.Rent<byte>(replyLength))
+                        if (replyLength > 0)
                         {
-                            var replyBuffer = rentedArray.Array;
-
-                            if (replyLength > 0)
-                                await this.ReadExactAsync(replyBuffer, replyLength).ConfigureAwait(false);
-
-                            await callReplyAction(header.SequenceNumber, eventBuffer, replyBuffer, null).ConfigureAwait(false);
+                            EnsureBufferSize(ref replyBuffer, replyLength);
+                            await this.ReadExactAsync(replyBuffer, replyLength).ConfigureAwait(false);
                         }
+
+                        await callReplyAction(header.SequenceNumber, eventBuffer, replyBuffer, null).ConfigureAwait(false);
                     }
                     else
                     {
@@ -334,27 +353,23 @@ namespace WagahighChoices.Toa.X11
         public Task<QueryTreeResult> QueryTreeAsync(uint window)
         {
             return this.SendRequestAsync(
-                async () =>
+                QueryTreeRequestSize,
+                buf =>
                 {
-                    using (var rentedArray = ArrayPool.Rent<byte>(QueryTreeRequestSize))
+                    unsafe
                     {
-                        var buf = rentedArray.Array;
-
-                        unsafe
+                        fixed (byte* p = buf)
                         {
-                            fixed (byte* p = buf)
+                            *(QueryTreeRequest*)p = new QueryTreeRequest()
                             {
-                                *(QueryTreeRequest*)p = new QueryTreeRequest()
-                                {
-                                    Opcode = 15,
-                                    RequestLength = 2,
-                                    Window = window,
-                                };
-                            }
+                                Opcode = 15,
+                                RequestLength = 2,
+                                Window = window,
+                            };
                         }
-
-                        await this.Stream.WriteAsync(buf, 0, QueryTreeRequestSize).ConfigureAwait(false);
                     }
+
+                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -389,34 +404,30 @@ namespace WagahighChoices.Toa.X11
             if (this._atomCache.TryGetValue(name, out var atom))
                 return new ValueTask<uint>(atom);
 
+            var nameLength = GetByteCountForString8(name);
+            var requestLength = InternAtomRequestSize + nameLength + ComputePad(nameLength);
+
             return new ValueTask<uint>(this.SendRequestAsync(
-                async () =>
+                requestLength,
+                buf =>
                 {
-                    var nameLength = GetByteCountForString8(name);
-                    var requestLength = InternAtomRequestSize + nameLength + ComputePad(nameLength);
-
-                    using (var rentedArray = ArrayPool.Rent<byte>(requestLength))
+                    unsafe
                     {
-                        var buf = rentedArray.Array;
-
-                        unsafe
+                        fixed (byte* p = buf)
                         {
-                            fixed (byte* p = buf)
+                            *(InternAtomRequest*)p = new InternAtomRequest()
                             {
-                                *(InternAtomRequest*)p = new InternAtomRequest()
-                                {
-                                    Opcode = 16,
-                                    OnlyIfExists = onlyIfExists,
-                                    RequestLength = (ushort)(requestLength / 4),
-                                    LengthOfName = (ushort)nameLength,
-                                };
-                            }
+                                Opcode = 16,
+                                OnlyIfExists = onlyIfExists,
+                                RequestLength = (ushort)(requestLength / 4),
+                                LengthOfName = (ushort)nameLength,
+                            };
                         }
-
-                        WriteString8(name, buf, InternAtomRequestSize);
-
-                        await this.Stream.WriteAsync(buf, 0, requestLength).ConfigureAwait(false);
                     }
+
+                    WriteString8(name, buf, InternAtomRequestSize);
+
+                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -439,27 +450,23 @@ namespace WagahighChoices.Toa.X11
         public Task<string> GetAtomNameAsync(uint atom)
         {
             return this.SendRequestAsync(
-                async () =>
+                GetAtomNameRequestSize,
+                buf =>
                 {
-                    using (var rentedArray = ArrayPool.Rent<byte>(GetAtomNameRequestSize))
+                    unsafe
                     {
-                        var buf = rentedArray.Array;
-
-                        unsafe
+                        fixed (byte* p = buf)
                         {
-                            fixed (byte* p = buf)
+                            *(GetAtomNameRequest*)p = new GetAtomNameRequest()
                             {
-                                *(GetAtomNameRequest*)p = new GetAtomNameRequest()
-                                {
-                                    Opcode = 17,
-                                    RequestLength = 2,
-                                    Atom = atom,
-                                };
-                            }
+                                Opcode = 17,
+                                RequestLength = 2,
+                                Atom = atom,
+                            };
                         }
-
-                        await this.Stream.WriteAsync(buf, 0, GetAtomNameRequestSize).ConfigureAwait(false);
                     }
+
+                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -484,32 +491,28 @@ namespace WagahighChoices.Toa.X11
             const int maxSize = 4096; // maximum-request-length にあわせてこれくらい？
 
             return await this.SendRequestAsync(
-                async () =>
+                GetPropertyRequestSize,
+                buf =>
                 {
-                    using (var rentedArray = ArrayPool.Rent<byte>(GetPropertyRequestSize))
+                    unsafe
                     {
-                        var buf = rentedArray.Array;
-
-                        unsafe
+                        fixed (byte* p = buf)
                         {
-                            fixed (byte* p = buf)
+                            *(GetPropertyRequest*)p = new GetPropertyRequest()
                             {
-                                *(GetPropertyRequest*)p = new GetPropertyRequest()
-                                {
-                                    Opcode = 20,
-                                    Delete = false,
-                                    RequestLength = 6,
-                                    Window = window,
-                                    Property = property,
-                                    Type = 0,
-                                    LongOffset = 0,
-                                    LongLength = maxSize,
-                                };
-                            }
+                                Opcode = 20,
+                                Delete = false,
+                                RequestLength = 6,
+                                Window = window,
+                                Property = property,
+                                Type = 0,
+                                LongOffset = 0,
+                                LongLength = maxSize,
+                            };
                         }
-
-                        await this.Stream.WriteAsync(buf, 0, GetPropertyRequestSize).ConfigureAwait(false);
                     }
+
+                    return Task.CompletedTask;
                 },
                 async (replyHeader, replyContent) =>
                 {
