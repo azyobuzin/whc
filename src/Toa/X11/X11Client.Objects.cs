@@ -244,7 +244,7 @@ namespace WagahighChoices.Toa.X11
         private struct GetImageRequest
         {
             public byte Opcode;
-            public byte Format;
+            public GetImageFormat Format;
             public ushort RequestLength;
             public uint Drawable;
             public short X;

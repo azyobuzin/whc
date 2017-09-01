@@ -72,6 +72,7 @@ namespace WagahighChoices.Toa.X11
             buffer = new byte[newSize];
         }
 
+        /*
         protected async Task SendRequestAsync(Func<Task> sendAction)
         {
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
@@ -85,9 +86,10 @@ namespace WagahighChoices.Toa.X11
                 this._requestSemaphore.Release();
             }
         }
+        */
 
         /// <param name="readReply">引数の <c>byte[]</c> は後で再利用するので外部に持ち出さないように</param>
-        protected async Task<T> SendRequestAsync<T>(int requestSize, Func<byte[], Task> createRequest, Func<byte[], byte[], ValueTask<T>> readReply)
+        protected async Task<T> SendRequestAsync<T>(int requestSize, Action<byte[]> createRequest, Func<byte[], byte[], ValueTask<T>> readReply)
         {
             var tcs = new TaskCompletionSource<T>();
 
@@ -118,7 +120,7 @@ namespace WagahighChoices.Toa.X11
                     throw new InvalidOperationException("Duplicated sequence number");
 
                 EnsureBufferSize(ref this._requestBuffer, requestSize);
-                await createRequest(this._requestBuffer).ConfigureAwait(false);
+                createRequest(this._requestBuffer);
                 await this.Stream.WriteAsync(this._requestBuffer, 0, requestSize).ConfigureAwait(false);
 
                 this._sequenceNumber++;
@@ -368,8 +370,6 @@ namespace WagahighChoices.Toa.X11
                             };
                         }
                     }
-
-                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -426,8 +426,6 @@ namespace WagahighChoices.Toa.X11
                     }
 
                     WriteString8(name, buf, InternAtomRequestSize);
-
-                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -465,8 +463,6 @@ namespace WagahighChoices.Toa.X11
                             };
                         }
                     }
-
-                    return Task.CompletedTask;
                 },
                 (replyHeader, replyContent) =>
                 {
@@ -511,8 +507,6 @@ namespace WagahighChoices.Toa.X11
                             };
                         }
                     }
-
-                    return Task.CompletedTask;
                 },
                 async (replyHeader, replyContent) =>
                 {
@@ -561,6 +555,50 @@ namespace WagahighChoices.Toa.X11
                     throw new X11Exception("Unsupported type '" + typeName + "'");
                 }
             ).ConfigureAwait(false);
+        }
+
+        public Task<GetImageResult> GetImageAsync(uint drawable, short x, short y, ushort width, ushort height, uint planeMask, GetImageFormat format)
+        {
+            return this.SendRequestAsync(
+                GetImageRequestSize,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(GetImageRequest*)p = new GetImageRequest()
+                            {
+                                Opcode = 73,
+                                Format = format,
+                                RequestLength = 5,
+                                Drawable = drawable,
+                                X = x,
+                                Y = y,
+                                Width = width,
+                                Height = height,
+                                PlaneMask = planeMask,
+                            };
+                        }
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (GetImageReply*)pReplyHeader;
+
+                            var data = new byte[rep->ReplyLength * 4];
+                            Buffer.BlockCopy(replyContent, 0, data, 0, data.Length);
+
+                            return new ValueTask<GetImageResult>(
+                                new GetImageResult(rep->Depth, this._visualTypes[rep->Visual], data));
+                        }
+                    }
+                }
+            );
         }
     }
 }
