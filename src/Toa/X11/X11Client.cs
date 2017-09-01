@@ -15,7 +15,7 @@ namespace WagahighChoices.Toa.X11
 
         private readonly SemaphoreSlim _requestSemaphore = new SemaphoreSlim(1, 1);
 
-        private readonly ConcurrentDictionary<ushort, Action<byte[], byte[], Exception>> _replyActions = new ConcurrentDictionary<ushort, Action<byte[], byte[], Exception>>();
+        private readonly ConcurrentDictionary<ushort, Func<byte[], byte[], Exception, Task>> _replyActions = new ConcurrentDictionary<ushort, Func<byte[], byte[], Exception, Task>>();
 
         private ushort _sequenceNumber = 1;
 
@@ -26,6 +26,8 @@ namespace WagahighChoices.Toa.X11
         public IReadOnlyList<Screen> Screens { get; private set; }
 
         private IReadOnlyDictionary<uint, VisualType> _visualTypes;
+
+        private ConcurrentDictionary<string, uint> _atomCache = new ConcurrentDictionary<string, uint>();
 
         protected X11Client(Stream stream)
         {
@@ -49,12 +51,12 @@ namespace WagahighChoices.Toa.X11
 
         public void Dispose() => this.Dispose(true);
 
-        protected async Task SendRequestAsync(Func<ushort, Task> sendAction)
+        protected async Task SendRequestAsync(Func<Task> sendAction)
         {
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
-                await sendAction(this._sequenceNumber).ConfigureAwait(false);
+                await sendAction().ConfigureAwait(false);
                 this._sequenceNumber++;
             }
             finally
@@ -63,11 +65,12 @@ namespace WagahighChoices.Toa.X11
             }
         }
 
-        protected async Task<T> SendRequestAsync<T>(Func<ushort, Task> sendAction, Func<byte[], byte[], T> replyAction)
+        /// <param name="replyAction">引数の <c>byte[]</c> は後で再利用するので外部に持ち出さないように</param>
+        protected async Task<T> SendRequestAsync<T>(Func<Task> sendAction, Func<byte[], byte[], ValueTask<T>> replyAction)
         {
             var tcs = new TaskCompletionSource<T>();
 
-            void action(byte[] replyHeader, byte[] replyContent, Exception excpetion)
+            async Task action(byte[] replyHeader, byte[] replyContent, Exception excpetion)
             {
                 if (excpetion != null)
                 {
@@ -77,7 +80,7 @@ namespace WagahighChoices.Toa.X11
 
                 try
                 {
-                    tcs.TrySetResult(replyAction(replyHeader, replyContent));
+                    tcs.TrySetResult(await replyAction(replyHeader, replyContent).ConfigureAwait(false));
                 }
                 catch (Exception ex)
                 {
@@ -93,12 +96,13 @@ namespace WagahighChoices.Toa.X11
                 if (!this._replyActions.TryAdd(sequenceNumber, action))
                     throw new InvalidOperationException("Duplicated sequence number");
 
-                await sendAction(sequenceNumber).ConfigureAwait(false);
+                await sendAction().ConfigureAwait(false);
                 this._sequenceNumber++;
             }
             catch
             {
                 this._replyActions.TryRemove(sequenceNumber, out var _);
+                throw;
             }
             finally
             {
@@ -122,7 +126,27 @@ namespace WagahighChoices.Toa.X11
 
         private static string ReadString8(byte[] buffer, int index, int count)
         {
+            return ReadUtf8String(buffer, index, count);
+        }
+
+        private static string ReadString16(byte[] buffer, int index, int count)
+        {
+            return Encoding.Unicode.GetString(buffer, index, count);
+        }
+
+        private static string ReadUtf8String(byte[] buffer, int index, int count)
+        {
             return Encoding.UTF8.GetString(buffer, index, count);
+        }
+
+        private static int GetByteCountForString8(string s)
+        {
+            return Encoding.UTF8.GetByteCount(s);
+        }
+
+        private static void WriteString8(string s, byte[] buffer, int index)
+        {
+            Encoding.UTF8.GetBytes(s, 0, s.Length, buffer, index);
         }
 
         private async Task SetupConnectionAsync()
@@ -263,16 +287,24 @@ namespace WagahighChoices.Toa.X11
                         }
                     }
 
+                    if (header.EventType == 0) // Error
+                    {
+                        // TODO: Reply なしのリクエストに対するエラーについて考える
+                        await callReplyAction(header.SequenceNumber, null, null, new X11Exception(header.ErrorCode.ToString()))
+                            .ConfigureAwait(false);
+                    }
                     if (header.EventType == 1) // Reply
                     {
-                        using (var rentedArray = ArrayPool.Rent<byte>(header.ReplyLength))
+                        var replyLength = header.ReplyLength * 4;
+
+                        using (var rentedArray = ArrayPool.Rent<byte>(replyLength))
                         {
                             var replyBuffer = rentedArray.Array;
 
-                            if (header.ReplyLength > 0)
-                                await this.ReadExactAsync(replyBuffer, header.ReplyLength).ConfigureAwait(false);
+                            if (replyLength > 0)
+                                await this.ReadExactAsync(replyBuffer, replyLength).ConfigureAwait(false);
 
-                            this._replyActions[header.SequenceNumber](eventBuffer, replyBuffer, null);
+                            await callReplyAction(header.SequenceNumber, eventBuffer, replyBuffer, null).ConfigureAwait(false);
                         }
                     }
                     else
@@ -290,6 +322,242 @@ namespace WagahighChoices.Toa.X11
 
                 // TODO: イベント購読者に例外を流す
             }
+
+            Task callReplyAction(ushort sequenceNumber, byte[] replyHeader, byte[] replyContent, Exception exception)
+            {
+                this._replyActions.TryRemove(sequenceNumber, out var replyAction);
+                if (replyAction == null) throw new InvalidOperationException("The reply action was not set.");
+                return replyAction(replyHeader, replyContent, exception);
+            }
+        }
+
+        public Task<QueryTreeResult> QueryTreeAsync(uint window)
+        {
+            return this.SendRequestAsync(
+                async () =>
+                {
+                    using (var rentedArray = ArrayPool.Rent<byte>(QueryTreeRequestSize))
+                    {
+                        var buf = rentedArray.Array;
+
+                        unsafe
+                        {
+                            fixed (byte* p = buf)
+                            {
+                                *(QueryTreeRequest*)p = new QueryTreeRequest()
+                                {
+                                    Opcode = 15,
+                                    RequestLength = 2,
+                                    Window = window,
+                                };
+                            }
+                        }
+
+                        await this.Stream.WriteAsync(buf, 0, QueryTreeRequestSize).ConfigureAwait(false);
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (QueryTreeReply*)pReplyHeader;
+
+                            if (rep->Header.ReplyLength < rep->NumberOfChildren)
+                                throw new X11Exception("Too many children");
+
+                            var children = new uint[rep->NumberOfChildren];
+
+                            fixed (byte* pReplyContent = replyContent)
+                            {
+                                var pChildren = (uint*)pReplyContent;
+                                for (var i = 0; i < rep->NumberOfChildren; i++)
+                                    children[i] = pChildren[i];
+                            }
+
+                            return new ValueTask<QueryTreeResult>(
+                                new QueryTreeResult(rep->Root, rep->Parent, children));
+                        }
+                    }
+                }
+            );
+        }
+
+        public ValueTask<uint> InternAtomAsync(string name, bool onlyIfExists)
+        {
+            if (this._atomCache.TryGetValue(name, out var atom))
+                return new ValueTask<uint>(atom);
+
+            return new ValueTask<uint>(this.SendRequestAsync(
+                async () =>
+                {
+                    var nameLength = GetByteCountForString8(name);
+                    var requestLength = InternAtomRequestSize + nameLength + ComputePad(nameLength);
+
+                    using (var rentedArray = ArrayPool.Rent<byte>(requestLength))
+                    {
+                        var buf = rentedArray.Array;
+
+                        unsafe
+                        {
+                            fixed (byte* p = buf)
+                            {
+                                *(InternAtomRequest*)p = new InternAtomRequest()
+                                {
+                                    Opcode = 16,
+                                    OnlyIfExists = onlyIfExists,
+                                    RequestLength = (ushort)(requestLength / 4),
+                                    LengthOfName = (ushort)nameLength,
+                                };
+                            }
+                        }
+
+                        WriteString8(name, buf, InternAtomRequestSize);
+
+                        await this.Stream.WriteAsync(buf, 0, requestLength).ConfigureAwait(false);
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (InternAtomReply*)pReplyHeader;
+
+                            if (rep->Atom != 0)
+                                this._atomCache[name] = rep->Atom;
+
+                            return new ValueTask<uint>(rep->Atom);
+                        }
+                    }
+                }
+            ));
+        }
+
+        public Task<string> GetAtomNameAsync(uint atom)
+        {
+            return this.SendRequestAsync(
+                async () =>
+                {
+                    using (var rentedArray = ArrayPool.Rent<byte>(GetAtomNameRequestSize))
+                    {
+                        var buf = rentedArray.Array;
+
+                        unsafe
+                        {
+                            fixed (byte* p = buf)
+                            {
+                                *(GetAtomNameRequest*)p = new GetAtomNameRequest()
+                                {
+                                    Opcode = 17,
+                                    RequestLength = 2,
+                                    Atom = atom,
+                                };
+                            }
+                        }
+
+                        await this.Stream.WriteAsync(buf, 0, GetAtomNameRequestSize).ConfigureAwait(false);
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (GetAtomNameReply*)pReplyHeader;
+                            return new ValueTask<string>(
+                                ReadString8(replyContent, 0, rep->LengthOfName));
+                        }
+                    }
+                }
+            );
+        }
+
+        public async Task<string> GetStringPropertyAsync(uint window, uint property)
+        {
+            // COMPOUND_STRING は文字コードがまったくわからん
+            var utf8TextAtom = await this.InternAtomAsync("UTF8_STRING", false).ConfigureAwait(false);
+
+            const int maxSize = 4096; // maximum-request-length にあわせてこれくらい？
+
+            return await this.SendRequestAsync(
+                async () =>
+                {
+                    using (var rentedArray = ArrayPool.Rent<byte>(GetPropertyRequestSize))
+                    {
+                        var buf = rentedArray.Array;
+
+                        unsafe
+                        {
+                            fixed (byte* p = buf)
+                            {
+                                *(GetPropertyRequest*)p = new GetPropertyRequest()
+                                {
+                                    Opcode = 20,
+                                    Delete = false,
+                                    RequestLength = 6,
+                                    Window = window,
+                                    Property = property,
+                                    Type = 0,
+                                    LongOffset = 0,
+                                    LongLength = maxSize,
+                                };
+                            }
+                        }
+
+                        await this.Stream.WriteAsync(buf, 0, GetPropertyRequestSize).ConfigureAwait(false);
+                    }
+                },
+                async (replyHeader, replyContent) =>
+                {
+                    // bytes-after は見ないので maxSize で足りなかったら残念
+
+                    uint type;
+
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (GetPropertyReply*)pReplyHeader;
+                            type = rep->Type;
+
+                            if (type == 0) return null;
+
+                            if (type == PredefinedAtoms.STRING)
+                            {
+                                switch (rep->Format)
+                                {
+                                    case 8:
+                                        return ReadString8(replyContent, 0, (int)rep->LengthOfValue);
+                                    case 16:
+                                        return ReadString16(replyContent, 0, (int)(rep->LengthOfValue * 2));
+                                    default:
+                                        throw new X11Exception("STRING" + rep->Format + " is not supported.");
+                                }
+                            }
+
+                            if (type == utf8TextAtom)
+                            {
+                                return ReadUtf8String(replyContent, 0, (int)(rep->LengthOfValue * (rep->Format / 8)));
+                            }
+                        }
+                    }
+
+                    string typeName;
+                    try
+                    {
+                        typeName = await this.GetAtomNameAsync(type).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new X11Exception("Unsuppoted type", ex);
+                    }
+                    throw new X11Exception("Unsupported type '" + typeName + "'");
+                }
+            ).ConfigureAwait(false);
         }
     }
 }

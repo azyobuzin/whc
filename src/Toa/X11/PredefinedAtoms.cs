@@ -1,0 +1,74 @@
+﻿namespace WagahighChoices.Toa.X11
+{
+    public static class PredefinedAtoms
+    {
+        public const uint PRIMARY = 1;
+        public const uint SECONDARY = 2;
+        public const uint ARC = 3;
+        public const uint ATOM = 4;
+        public const uint BITMAP = 5;
+        public const uint CARDINAL = 6;
+        public const uint COLORMAP = 7;
+        public const uint CURSOR = 8;
+        public const uint CUT_BUFFER0 = 9;
+        public const uint CUT_BUFFER1 = 10;
+        public const uint CUT_BUFFER2 = 11;
+        public const uint CUT_BUFFER3 = 12;
+        public const uint CUT_BUFFER4 = 13;
+        public const uint CUT_BUFFER5 = 14;
+        public const uint CUT_BUFFER6 = 15;
+        public const uint CUT_BUFFER7 = 16;
+        public const uint DRAWABLE = 17;
+        public const uint FONT = 18;
+        public const uint INTEGER = 19;
+        public const uint PIXMAP = 20;
+        public const uint POINT = 21;
+        public const uint RECTANGLE = 22;
+        public const uint RESOURCE_MANAGER = 23;
+        public const uint RGB_COLOR_MAP = 24;
+        public const uint RGB_BEST_MAP = 25;
+        public const uint RGB_BLUE_MAP = 26;
+        public const uint RGB_DEFAULT_MAP = 27;
+        public const uint RGB_GRAY_MAP = 28;
+        public const uint RGB_GREEN_MAP = 29;
+        public const uint RGB_RED_MAP = 30;
+        public const uint STRING = 31;
+        public const uint VISUALID = 32;
+        public const uint WINDOW = 33;
+        public const uint WM_COMMAND = 34;
+        public const uint WM_HINTS = 35;
+        public const uint WM_CLIENT_MACHINE = 36;
+        public const uint WM_ICON_NAME = 37;
+        public const uint WM_ICON_SIZE = 38;
+        public const uint WM_NAME = 39;
+        public const uint WM_NORMAL_HINTS = 40;
+        public const uint WM_SIZE_HINTS = 41;
+        public const uint WM_ZOOM_HINTS = 42;
+        public const uint MIN_SPACE = 43;
+        public const uint NORM_SPACE = 44;
+        public const uint MAX_SPACE = 45;
+        public const uint END_SPACE = 46;
+        public const uint SUPERSCRIPT_X = 47;
+        public const uint SUPERSCRIPT_Y = 48;
+        public const uint SUBSCRIPT_X = 49;
+        public const uint SUBSCRIPT_Y = 50;
+        public const uint UNDERLINE_POSITION = 51;
+        public const uint UNDERLINE_THICKNESS = 52;
+        public const uint STRIKEOUT_ASCENT = 53;
+        public const uint STRIKEOUT_DESCENT = 54;
+        public const uint ITALIC_ANGLE = 55;
+        public const uint X_HEIGHT = 56;
+        public const uint QUAD_WIDTH = 57;
+        public const uint WEIGHT = 58;
+        public const uint POINT_SIZE = 59;
+        public const uint RESOLUTION = 60;
+        public const uint COPYRIGHT = 61;
+        public const uint NOTICE = 62;
+        public const uint FONT_NAME = 63;
+        public const uint FAMILY_NAME = 64;
+        public const uint FULL_NAME = 65;
+        public const uint CAP_HEIGHT = 66;
+        public const uint WM_CLASS = 67;
+        public const uint WM_TRANSIENT_FOR = 68;
+    }
+}

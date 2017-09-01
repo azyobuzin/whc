@@ -5,6 +5,27 @@ namespace WagahighChoices.Toa.X11
 {
     partial class X11Client
     {
+        private enum ErrorCode : byte
+        {
+            Request = 1,
+            Value = 2,
+            Window = 3,
+            Pixmap = 4,
+            Atom = 5,
+            Cursor = 6,
+            Font = 7,
+            Match = 8,
+            Drawable = 9,
+            Access = 10,
+            Alloc = 11,
+            Colormap = 12,
+            GContext = 13,
+            IDChoice = 14,
+            Name = 15,
+            Length = 16,
+            Implementation = 17,
+        }
+
         private const int SetupRequestDataSize = 12;
 
         [StructLayout(LayoutKind.Explicit, Pack = 1, Size = SetupRequestDataSize)]
@@ -119,39 +140,128 @@ namespace WagahighChoices.Toa.X11
             public ushort NumberOfVisuals;
         }
 
-        private const int VisualTypeSize = 24;
+        internal const int VisualTypeSize = 24;
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = VisualTypeSize)]
-        private struct VisualType
-        {
-            public uint VisualId;
-            public VisualClass Class;
-            public byte BitsPerRgbValue;
-            public ushort ColormapEntries;
-            public uint RedMask;
-            public uint GreenMask;
-            public uint BlueMask;
-        }
-
-        private enum VisualClass : byte
-        {
-            StaticGray = 0,
-            GrayScale = 1,
-            StaticColor = 2,
-            PseudoColor = 3,
-            TrueColor = 4,
-            DirectColor = 5,
-        }
-
-        [StructLayout(LayoutKind.Explicit, Pack = 1)]
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct EventOrReplyHeader
         {
-            [FieldOffset(0)]
             public byte EventType;
-            [FieldOffset(2)]
+            public ErrorCode ErrorCode;
             public ushort SequenceNumber;
-            [FieldOffset(4)]
             public int ReplyLength;
+        }
+
+        private const int QueryTreeRequestSize = 8;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = QueryTreeRequestSize)]
+        private struct QueryTreeRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public uint Window;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct QueryTreeReply
+        {
+            public EventOrReplyHeader Header;
+            public uint Root;
+            public uint Parent;
+            public ushort NumberOfChildren;
+        }
+
+        private const int InternAtomRequestSize = 8;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = InternAtomRequestSize)]
+        private struct InternAtomRequest
+        {
+            public byte Opcode;
+            public bool OnlyIfExists;
+            public ushort RequestLength;
+            public ushort LengthOfName;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct InternAtomReply
+        {
+            public EventOrReplyHeader Header;
+            public uint Atom;
+        }
+
+        private const int GetAtomNameRequestSize = 8;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = GetAtomNameRequestSize)]
+        private struct GetAtomNameRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public uint Atom;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct GetAtomNameReply
+        {
+            public EventOrReplyHeader Header;
+            public ushort LengthOfName;
+        }
+
+        private const int GetPropertyRequestSize = 24;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct GetPropertyRequest
+        {
+            public byte Opcode;
+            public bool Delete;
+            public ushort RequestLength;
+            public uint Window;
+            public uint Property;
+            public uint Type;
+            public uint LongOffset;
+            public uint LongLength;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct GetPropertyReply
+        {
+            public byte Reply;
+            public byte Format;
+            public ushort SequenceNumber;
+            public uint ReplyLength;
+            public uint Type;
+            public uint BytesAfter;
+            public uint LengthOfValue;
+        }
+
+        private const int GetImageRequestSize = 20;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = GetImageRequestSize)]
+        private struct GetImageRequest
+        {
+            public byte Opcode;
+            public byte Format;
+            public ushort RequestLength;
+            public uint Drawable;
+            public short X;
+            public short Y;
+            public ushort Width;
+            public ushort Height;
+            public uint PlaneMask;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct GetImageReply
+        {
+            public byte Reply;
+            public byte Depth;
+            public ushort SequenceNumber;
+            public uint ReplyLength;
+            public uint Visual;
         }
     }
 }

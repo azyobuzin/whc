@@ -18,7 +18,25 @@ namespace ToaX11Playground
             {
                 Console.WriteLine("Vender: " + client.ServerVendor);
                 Console.WriteLine("Screen Count: " + client.Screens.Count);
+
+                await PrintTree(client, client.Screens[0].RootWindow, 0).ConfigureAwait(false);
             }
+        }
+
+        private static async Task PrintTree(X11Client client, uint window, int depth)
+        {
+            var windowNameAtom = await client.InternAtomAsync("_NET_WM_NAME", false).ConfigureAwait(false);
+            var windowName = await client.GetStringPropertyAsync(window, windowNameAtom).ConfigureAwait(false);
+
+            for (var i = 0; i < depth; i++)
+                Console.Write("  ");
+
+            Console.WriteLine("{0} ({1})", window, windowName);
+
+            var result = await client.QueryTreeAsync(window).ConfigureAwait(false);
+
+            foreach (var child in result.Children)
+                await PrintTree(client, child, depth + 1).ConfigureAwait(false);
         }
     }
 }
