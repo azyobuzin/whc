@@ -5,7 +5,7 @@ namespace WagahighChoices.Toa.X11
 {
     partial class X11Client
     {
-        private enum ErrorCode : byte
+        internal enum ErrorCode : byte
         {
             Request = 1,
             Value = 2,
@@ -143,12 +143,55 @@ namespace WagahighChoices.Toa.X11
         internal const int VisualTypeSize = 24;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct EventOrReplyHeader
+        internal struct EventOrReplyHeader
         {
             public byte EventType;
             public ErrorCode ErrorCode;
             public ushort SequenceNumber;
             public int ReplyLength;
+        }
+
+        private const int ConfigureWindowRequestSize = 12;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = ConfigureWindowRequestSize)]
+        private struct ConfigureWindowRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public uint Window;
+            [FieldOffset(8)]
+            public ushort ValueMask;
+        }
+
+        private const int GetGeometryRequestSize = 8;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = GetGeometryRequestSize)]
+        private struct GetGeometryRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public uint Drawable;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct GetGeometryReply
+        {
+            public byte Reply;
+            public byte Depth;
+            public ushort SequenceNumber;
+            public uint ReplyLength;
+            public uint Root;
+            public short X;
+            public short Y;
+            public ushort Width;
+            public ushort Height;
+            public ushort BorderWidth;
         }
 
         private const int QueryTreeRequestSize = 8;
@@ -262,6 +305,29 @@ namespace WagahighChoices.Toa.X11
             public ushort SequenceNumber;
             public uint ReplyLength;
             public uint Visual;
+        }
+
+        private const int QueryExtensionRequestSize = 8;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = QueryExtensionRequestSize)]
+        private struct QueryExtensionRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public ushort LengthOfName;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct QueryExtensionReply
+        {
+            public EventOrReplyHeader Header;
+            public bool Present;
+            public byte MajorOpcode;
+            public byte FirstEvent;
+            public byte FirstError;
         }
     }
 }

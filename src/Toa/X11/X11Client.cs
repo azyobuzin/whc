@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -21,6 +22,8 @@ namespace WagahighChoices.Toa.X11
 
         private byte[] _requestBuffer;
 
+        private bool _disposed;
+
         private SetupResponseData _setup;
 
         public string ServerVendor { get; private set; }
@@ -30,6 +33,9 @@ namespace WagahighChoices.Toa.X11
         private IReadOnlyDictionary<uint, VisualType> _visualTypes;
 
         private ConcurrentDictionary<string, uint> _atomCache = new ConcurrentDictionary<string, uint>();
+
+        private XFixes _xfixes;
+        public XFixes XFixes => this._xfixes ?? (this._xfixes = new XFixes(this));
 
         protected X11Client(Stream stream)
         {
@@ -48,6 +54,9 @@ namespace WagahighChoices.Toa.X11
 
         protected virtual void Dispose(bool disposing)
         {
+            if (this._disposed) return;
+            this._disposed = true;
+
             if (disposing) this.Stream.Dispose();
         }
 
@@ -72,24 +81,33 @@ namespace WagahighChoices.Toa.X11
             buffer = new byte[newSize];
         }
 
-        /*
-        protected async Task SendRequestAsync(Func<Task> sendAction)
+        protected internal async Task SendRequestAsync(int requestSize, Action<byte[]> createRequest)
         {
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
-                await sendAction().ConfigureAwait(false);
+                //if (!this._replyActions.TryAdd(sequenceNumber, action))
+                //    throw new InvalidOperationException("Duplicated sequence number");
+
+                EnsureBufferSize(ref this._requestBuffer, requestSize);
+                createRequest(this._requestBuffer);
+                await this.Stream.WriteAsync(this._requestBuffer, 0, requestSize).ConfigureAwait(false);
+
                 this._sequenceNumber++;
+            }
+            catch
+            {
+                //this._replyActions.TryRemove(sequenceNumber, out var _);
+                throw;
             }
             finally
             {
                 this._requestSemaphore.Release();
             }
         }
-        */
 
         /// <param name="readReply">引数の <c>byte[]</c> は後で再利用するので外部に持ち出さないように</param>
-        protected async Task<T> SendRequestAsync<T>(int requestSize, Action<byte[]> createRequest, Func<byte[], byte[], ValueTask<T>> readReply)
+        protected internal async Task<T> SendRequestAsync<T>(int requestSize, Action<byte[]> createRequest, Func<byte[], byte[], ValueTask<T>> readReply)
         {
             var tcs = new TaskCompletionSource<T>();
 
@@ -111,11 +129,13 @@ namespace WagahighChoices.Toa.X11
                 }
             }
 
-            var sequenceNumber = this._sequenceNumber;
+            ushort sequenceNumber = 0;
 
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
+                sequenceNumber = this._sequenceNumber;
+
                 if (!this._replyActions.TryAdd(sequenceNumber, action))
                     throw new InvalidOperationException("Duplicated sequence number");
 
@@ -150,27 +170,27 @@ namespace WagahighChoices.Toa.X11
             }
         }
 
-        private static string ReadString8(byte[] buffer, int index, int count)
+        internal static string ReadString8(byte[] buffer, int index, int count)
         {
             return ReadUtf8String(buffer, index, count);
         }
 
-        private static string ReadString16(byte[] buffer, int index, int count)
+        internal static string ReadString16(byte[] buffer, int index, int count)
         {
             return Encoding.Unicode.GetString(buffer, index, count);
         }
 
-        private static string ReadUtf8String(byte[] buffer, int index, int count)
+        internal static string ReadUtf8String(byte[] buffer, int index, int count)
         {
             return Encoding.UTF8.GetString(buffer, index, count);
         }
 
-        private static int GetByteCountForString8(string s)
+        internal static int GetByteCountForString8(string s)
         {
             return Encoding.UTF8.GetByteCount(s);
         }
 
-        private static void WriteString8(string s, byte[] buffer, int index)
+        internal static void WriteString8(string s, byte[] buffer, int index)
         {
             Encoding.UTF8.GetBytes(s, 0, s.Length, buffer, index);
         }
@@ -310,6 +330,8 @@ namespace WagahighChoices.Toa.X11
                         }
                     }
 
+                    Debug.WriteLine("Received " + header.EventType);
+
                     if (header.EventType == 0) // Error
                     {
                         // TODO: Reply なしのリクエストに対するエラーについて考える
@@ -336,12 +358,15 @@ namespace WagahighChoices.Toa.X11
             }
             catch (Exception ex)
             {
-                foreach (var kvp in this._replyActions)
-                    kvp.Value?.Invoke(null, null, ex);
+                if (!this._disposed)
+                {
+                    foreach (var kvp in this._replyActions)
+                        kvp.Value?.Invoke(null, null, ex);
 
-                this._replyActions.Clear();
+                    this._replyActions.Clear();
 
-                // TODO: イベント購読者に例外を流す
+                    // TODO: イベント購読者に例外を流す
+                }
             }
 
             Task callReplyAction(ushort sequenceNumber, byte[] replyHeader, byte[] replyContent, Exception exception)
@@ -350,6 +375,137 @@ namespace WagahighChoices.Toa.X11
                 if (replyAction == null) throw new InvalidOperationException("The reply action was not set.");
                 return replyAction(replyHeader, replyContent, exception);
             }
+        }
+
+        public Task ConfigureWindowAsync(uint window, short? x = null, short? y = null, ushort? width = null, ushort? height = null, ushort? borderWidth = null, uint? sibling = null, StackMode? stackMode = null)
+        {
+            ushort valueMask = 0;
+            var valueLength = 0;
+            if (x.HasValue)
+            {
+                valueMask |= 0x0001;
+                valueLength += 4;
+            }
+            if (y.HasValue)
+            {
+                valueMask |= 0x0002;
+                valueLength += 4;
+            }
+            if (width.HasValue)
+            {
+                valueMask |= 0x0004;
+                valueLength += 4;
+            }
+            if (height.HasValue)
+            {
+                valueMask |= 0x0008;
+                valueLength += 4;
+            }
+            if (borderWidth.HasValue)
+            {
+                valueMask |= 0x0010;
+                valueLength += 4;
+            }
+            if (sibling.HasValue)
+            {
+                valueMask |= 0x0020;
+                valueLength += 4;
+            }
+            if (stackMode.HasValue)
+            {
+                valueMask |= 0x0040;
+                valueLength += 4;
+            }
+            var requestLength = ConfigureWindowRequestSize + valueLength;
+
+            return this.SendRequestAsync(
+                requestLength,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(ConfigureWindowRequest*)p = new ConfigureWindowRequest()
+                            {
+                                Opcode = 12,
+                                RequestLength = (ushort)(requestLength / 4),
+                                Window = window,
+                                ValueMask = valueMask,
+                            };
+
+                            var pv = &p[ConfigureWindowRequestSize];
+                            if (x.HasValue)
+                            {
+                                *(short*)pv = x.Value;
+                                pv += 4;
+                            }
+                            if (y.HasValue)
+                            {
+                                *(short*)pv = y.Value;
+                                pv += 4;
+                            }
+                            if (width.HasValue)
+                            {
+                                *(ushort*)pv = width.Value;
+                                pv += 4;
+                            }
+                            if (height.HasValue)
+                            {
+                                *(ushort*)pv = height.Value;
+                                pv += 4;
+                            }
+                            if (borderWidth.HasValue)
+                            {
+                                *(ushort*)pv = borderWidth.Value;
+                                pv += 4;
+                            }
+                            if (sibling.HasValue)
+                            {
+                                *(uint*)pv = sibling.Value;
+                                pv += 4;
+                            }
+                            if (stackMode.HasValue)
+                            {
+                                *pv = (byte)stackMode.Value;
+                            }
+                        }
+                    }
+                }
+            );
+        }
+
+        public Task<GetGeometryResult> GetGeometryAsync(uint drawable)
+        {
+            return this.SendRequestAsync(
+                GetGeometryRequestSize,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(GetGeometryRequest*)p = new GetGeometryRequest()
+                            {
+                                Opcode = 14,
+                                RequestLength = 2,
+                                Drawable = drawable,
+                            };
+                        }
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (GetGeometryReply*)pReplyHeader;
+                            return new ValueTask<GetGeometryResult>(new GetGeometryResult(rep));
+                        }
+                    }
+                }
+            );
         }
 
         public Task<QueryTreeResult> QueryTreeAsync(uint window)
@@ -595,6 +751,45 @@ namespace WagahighChoices.Toa.X11
 
                             return new ValueTask<GetImageResult>(
                                 new GetImageResult(rep->Depth, this._visualTypes[rep->Visual], data));
+                        }
+                    }
+                }
+            );
+        }
+
+        public Task<QueryExtensionResult> QueryExtensionAsync(string name)
+        {
+            var lengthOfName = GetByteCountForString8(name);
+            var requestLength = QueryExtensionRequestSize + lengthOfName + ComputePad(lengthOfName);
+
+            return this.SendRequestAsync(
+                requestLength,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(QueryExtensionRequest*)p = new QueryExtensionRequest()
+                            {
+                                Opcode = 98,
+                                RequestLength = (ushort)(requestLength / 4),
+                                LengthOfName = (ushort)lengthOfName,
+                            };
+                        }
+                    }
+
+                    WriteString8(name, buf, QueryExtensionRequestSize);
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (QueryExtensionReply*)pReplyHeader;
+                            return new ValueTask<QueryExtensionResult>(
+                                rep->Present ? new QueryExtensionResult(rep) : null);
                         }
                     }
                 }
