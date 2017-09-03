@@ -14,7 +14,7 @@ RUN dpkg --add-architecture i386 && \
     wget -O - https://dl.winehq.org/wine-builds/Release.key | apt-key add - && \
     apt-add-repository -y https://dl.winehq.org/wine-builds/ubuntu/ && \
     apt-get update -y && \
-    apt-get install -y locales make winehq-devel xvfb x11vnc xdotool && \
+    apt-get install -y locales make winehq-devel xvfb x11vnc xdotool ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen ja_JP.UTF-8
@@ -41,5 +41,4 @@ COPY run_wagahigh.sh /
 RUN chmod a+rx /run_wagahigh.sh
 
 USER wagahigh
-EXPOSE 5900 6000
 CMD /run_wagahigh.sh

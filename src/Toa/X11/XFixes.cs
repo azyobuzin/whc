@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
+using static WagahighChoices.Toa.X11.X11Client;
 
 namespace WagahighChoices.Toa.X11
 {

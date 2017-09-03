@@ -25,9 +25,8 @@ namespace ToaX11Playground
 
                 //await PrintTree(client, screen.RootWindow, 0).ConfigureAwait(false);
 
-                //var wagahighWindow = await FindWagahighWindow(client, screen.RootWindow).ConfigureAwait(false);
-                //await client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
-                //await Task.Delay(1000).ConfigureAwait(false);
+                var wagahighWindow = await FindWagahighWindow(client, screen.Root).ConfigureAwait(false);
+                await client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
 
                 //var getImageResult = await client.GetImageAsync(screen.RootWindow, 0, 0, screen.Width, screen.Height, uint.MaxValue, GetImageFormat.ZPixmap).ConfigureAwait(false);
                 //Console.WriteLine("Depth: " + getImageResult.Depth);
@@ -35,11 +34,27 @@ namespace ToaX11Playground
 
                 //SaveImage(getImageResult.Data, screen.Width, screen.Height);
 
+                /*
                 for (var i = 0; ; i++)
                 {
                     var cursor = await client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
                     SaveCursor(cursor.CursorImage, cursor.Width, cursor.Height, $"cursor{i}.png");
                     Console.WriteLine("{0}, {1}", cursor.X, cursor.Y);
+                    await Task.Delay(500).ConfigureAwait(false);
+                }
+                */
+
+                var rng = new Random();
+
+                while (true)
+                {
+                    await client.XTest.FakeInputAsync(
+                        XTestFakeEventType.MotionNotify,
+                        0, 0, screen.Root,
+                        (short)rng.Next(screen.Width),
+                        (short)rng.Next(screen.Height)
+                    ).ConfigureAwait(false);
+
                     await Task.Delay(500).ConfigureAwait(false);
                 }
             }

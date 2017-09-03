@@ -37,6 +37,9 @@ namespace WagahighChoices.Toa.X11
         private XFixes _xfixes;
         public XFixes XFixes => this._xfixes ?? (this._xfixes = new XFixes(this));
 
+        private XTest _xtest;
+        public XTest XTest => this._xtest ?? (this._xtest = new XTest(this));
+
         protected X11Client(Stream stream)
         {
             this.Stream = stream;

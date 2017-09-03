@@ -5,16 +5,6 @@ namespace WagahighChoices.Toa.X11
 {
     partial class XFixes
     {
-        private const int ExtensionRequestHeaderSize = 4;
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = ExtensionRequestHeaderSize)]
-        private struct ExtensionRequestHeader
-        {
-            public byte MajorOpcode;
-            public byte MinorOpcode;
-            public ushort RequestLength;
-        }
-
         private const int QueryVersionRequestSize = 12;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1, Size = QueryVersionRequestSize)]

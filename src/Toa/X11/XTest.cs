@@ -1,0 +1,64 @@
+﻿using System.Threading.Tasks;
+
+namespace WagahighChoices.Toa.X11
+{
+    public partial class XTest
+    {
+        public const string ExtensionName = "XTEST";
+        public const uint MajorVersion = 2;
+        public const uint MinorVersion = 1;
+
+        private readonly X11Client _client;
+        private byte? _majorOpcode;
+
+        public XTest(X11Client client)
+        {
+            this._client = client;
+        }
+
+        private async Task EnsureMajorOpcodeAsync()
+        {
+            if (this._majorOpcode.HasValue) return;
+
+            var queryResult = await this._client.QueryExtensionAsync(ExtensionName).ConfigureAwait(false);
+
+            if (queryResult == null)
+                throw new X11Exception("The server does not support XTEST.");
+
+            this._majorOpcode = queryResult.MajorOpcode;
+        }
+
+        public async Task FakeInputAsync(XTestFakeEventType type, byte detail, uint time, uint root, short rootX, short rootY)
+        {
+            await this.EnsureMajorOpcodeAsync().ConfigureAwait(false);
+
+            await this._client.SendRequestAsync(
+                FakeInputRequestSize,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(FakeInputRequest*)p = new FakeInputRequest()
+                            {
+                                Header = new X11Client.ExtensionRequestHeader()
+                                {
+                                    MajorOpcode = this._majorOpcode.Value,
+                                    MinorOpcode = 2,
+                                    RequestLength = 9,
+                                },
+                                Type = type,
+                                Detail = detail,
+                                Time = time,
+                                Root = root,
+                                RootX = rootX,
+                                RootY = rootY,
+                            };
+                        }
+                    }
+                }
+            ).ConfigureAwait(false);
+        }
+    }
+}
