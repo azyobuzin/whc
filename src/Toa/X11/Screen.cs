@@ -15,5 +15,12 @@ namespace WagahighChoices.Toa.X11
             this.Width = width;
             this.Height = height;
         }
+
+        internal unsafe Screen(X11Client.SetupScreenData* screen)
+        {
+            this.Root = screen->Root;
+            this.Width = screen->WidthInPixels;
+            this.Height = screen->HeightInPixels;
+        }
     }
 }

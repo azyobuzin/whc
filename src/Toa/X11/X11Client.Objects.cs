@@ -79,7 +79,7 @@ namespace WagahighChoices.Toa.X11
         private const int SetupScreenDataSize = 40;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct SetupScreenData
+        internal struct SetupScreenData
         {
             public uint Root;
             public uint DefaultColormap;
@@ -100,7 +100,7 @@ namespace WagahighChoices.Toa.X11
         }
 
         [Flags]
-        private enum SetOfEvent : uint
+        internal enum SetOfEvent : uint
         {
             KeyPress = 0x00000001,
             KeyRelease = 0x00000002,

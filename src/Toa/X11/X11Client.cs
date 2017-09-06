@@ -24,8 +24,6 @@ namespace WagahighChoices.Toa.X11
 
         private bool _disposed;
 
-        private SetupResponseData _setup;
-
         public string ServerVendor { get; private set; }
 
         public IReadOnlyList<Screen> Screens { get; private set; }
@@ -48,9 +46,20 @@ namespace WagahighChoices.Toa.X11
         public static async Task<X11Client> ConnectAsync(string host, int display)
         {
             var tcpClient = new TcpClient();
-            await tcpClient.ConnectAsync(host, 6000 + display).ConfigureAwait(false);
-            var x11Client = new X11Client(tcpClient.GetStream());
-            await x11Client.SetupConnectionAsync().ConfigureAwait(false);
+            X11Client x11Client;
+
+            try
+            {
+                await tcpClient.ConnectAsync(host, 6000 + display).ConfigureAwait(false);
+                x11Client = new X11Client(tcpClient.GetStream());
+                await x11Client.SetupConnectionAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                tcpClient.Dispose();
+                throw;
+            }
+
             x11Client.ReceiveWorker();
             return x11Client;
         }
@@ -266,23 +275,23 @@ namespace WagahighChoices.Toa.X11
             {
                 fixed (byte* p = buf)
                 {
-                    this._setup = *(SetupResponseData*)p;
+                    var setupRes = (SetupResponseData*)p;
 
-                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, this._setup.LengthOfVendor);
+                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, setupRes->LengthOfVendor);
 
-                    screens = new Screen[this._setup.NumberOfScreens];
+                    screens = new Screen[setupRes->NumberOfScreens];
                     var screenIndex = 0;
 
-                    var offset = SetupResponseDataSize + this._setup.LengthOfVendor
-                        + ComputePad(this._setup.LengthOfVendor) + 8 * this._setup.NumberOfFormats;
+                    var offset = SetupResponseDataSize + setupRes->LengthOfVendor
+                        + ComputePad(setupRes->LengthOfVendor) + 8 * setupRes->NumberOfFormats;
 
-                    while (screenIndex < this._setup.NumberOfScreens)
+                    while (screenIndex < setupRes->NumberOfScreens)
                     {
                         if (offset + SetupScreenDataSize > additionalDataLength)
                             throw new X11Exception("Too many screens");
 
                         var screen = (SetupScreenData*)&p[offset];
-                        screens[screenIndex++] = new Screen(screen->Root, screen->WidthInPixels, screen->HeightInPixels);
+                        screens[screenIndex++] = new Screen(screen);
 
                         offset += SetupScreenDataSize;
 
@@ -341,7 +350,7 @@ namespace WagahighChoices.Toa.X11
                         await callReplyAction(header.SequenceNumber, null, null, new X11Exception(header.ErrorCode.ToString()))
                             .ConfigureAwait(false);
                     }
-                    if (header.EventType == 1) // Reply
+                    else if (header.EventType == 1) // Reply
                     {
                         var replyLength = header.ReplyLength * 4;
 
