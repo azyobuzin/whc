@@ -716,6 +716,43 @@ namespace WagahighChoices.Toa.X11
             ).ConfigureAwait(false);
         }
 
+        public Task<TranslateCoordinatesResult> TranslateCoordinatesAsync(uint srcWindow, uint dstWindow, short srcX, short srcY)
+        {
+            return this.SendRequestAsync(
+                TranslateCoordinatesRequestSize,
+                buf =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* p = buf)
+                        {
+                            *(TranslateCoordinatesRequest*)p = new TranslateCoordinatesRequest()
+                            {
+                                Opcode = 40,
+                                RequestLength = 4,
+                                SrcWindow = srcWindow,
+                                DstWindow = dstWindow,
+                                SrcX = srcX,
+                                SrcY = srcY,
+                            };
+                        }
+                    }
+                },
+                (replyHeader, replyContent) =>
+                {
+                    unsafe
+                    {
+                        fixed (byte* pReplyHeader = replyHeader)
+                        {
+                            var rep = (TranslateCoordinatesReply*)pReplyHeader;
+                            return new ValueTask<TranslateCoordinatesResult>(
+                                new TranslateCoordinatesResult(rep));
+                        }
+                    }
+                }
+            );
+        }
+
         public Task<GetImageResult> GetImageAsync(uint drawable, short x, short y, ushort width, ushort height, uint planeMask, GetImageFormat format)
         {
             return this.SendRequestAsync(

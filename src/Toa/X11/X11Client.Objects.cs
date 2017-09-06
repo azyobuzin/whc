@@ -291,6 +291,37 @@ namespace WagahighChoices.Toa.X11
             public uint LengthOfValue;
         }
 
+        private const int TranslateCoordinatesRequestSize = 16;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = TranslateCoordinatesRequestSize)]
+        private struct TranslateCoordinatesRequest
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+            [FieldOffset(4)]
+            public uint SrcWindow;
+            [FieldOffset(8)]
+            public uint DstWindow;
+            [FieldOffset(12)]
+            public short SrcX;
+            [FieldOffset(14)]
+            public short SrcY;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct TranslateCoordinatesReply
+        {
+            public byte Reply;
+            public bool SameScreen;
+            public ushort SequenceNumber;
+            public uint ReplyLength;
+            public uint Child;
+            public short DstX;
+            public short DstY;
+        }
+
         private const int GetImageRequestSize = 20;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1, Size = GetImageRequestSize)]
