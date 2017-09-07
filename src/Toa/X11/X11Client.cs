@@ -72,7 +72,11 @@ namespace WagahighChoices.Toa.X11
             if (disposing) this.Stream.Dispose();
         }
 
-        public void Dispose() => this.Dispose(true);
+        public void Dispose()
+        {
+            this.Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
         private static void EnsureBufferSize(ref byte[] buffer, int size)
         {

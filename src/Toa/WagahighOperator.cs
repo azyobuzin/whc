@@ -1,13 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
-using WagahighChoices.Toa.X11;
 using ImageSharp;
+using ImageSharp.PixelFormats;
+using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Toa
 {
-    public class WagahighOperator
+    public class WagahighOperator : IDisposable
     {
         private X11Client _x11Client;
         private uint _screenRootWindow;
@@ -99,6 +98,45 @@ namespace WagahighChoices.Toa
                 throw new Exception("非対応の画像形式です。");
 
             return Image.LoadPixelData<Rgb2432>(new Span<byte>(res.Data), this._contentWidth, this._contentHeight);
+        }
+
+        public Task SetCursorPositionAsync(int x, int y)
+        {
+            checked
+            {
+                return this._x11Client.XTest.FakeInputAsync(XTestFakeEventType.MotionNotify, 0, 0,
+                    this._screenRootWindow, (short)(this._contentX + x), (short)(this._contentY + y));
+            }
+        }
+
+        public async Task MouseClickAsync()
+        {
+            await this._x11Client.XTest.FakeInputAsync(
+                XTestFakeEventType.ButtonPress,
+                1, 0, this._screenRootWindow, 0, 0
+            ).ConfigureAwait(false);
+
+            await this._x11Client.XTest.FakeInputAsync(
+                XTestFakeEventType.ButtonRelease,
+                1, 0, this._screenRootWindow, 0, 0
+            ).ConfigureAwait(false);
+        }
+
+        public async Task<byte[]> GetCursorImageAsBytesAsync()
+        {
+            var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
+            return x.CursorImage;
+        }
+
+        public async Task<Image<Argb32>> GetCursorImageAsync()
+        {
+            var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
+            return Image.LoadPixelData<Argb32>(new Span<byte>(x.CursorImage), x.Width, x.Height);
+        }
+
+        public void Dispose()
+        {
+            this._x11Client.Dispose();
         }
     }
 }
