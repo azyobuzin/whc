@@ -30,7 +30,7 @@ namespace WagahighChoices.Toa.X11
 
         private IReadOnlyDictionary<uint, VisualType> _visualTypes;
 
-        private ConcurrentDictionary<string, uint> _atomCache = new ConcurrentDictionary<string, uint>();
+        private readonly ConcurrentDictionary<string, uint> _atomCache = new ConcurrentDictionary<string, uint>();
 
         private XFixes _xfixes;
         public XFixes XFixes => this._xfixes ?? (this._xfixes = new XFixes(this));

@@ -1,0 +1,58 @@
+﻿<Window x:Class="WagahighChoices.Mihiro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WagahighChoices.Mihiro"
+        mc:Ignorable="d"
+        Title="Mihiro" Height="350" Width="525">
+    <Grid Margin="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="6" />
+            <RowDefinition />
+            <RowDefinition Height="6" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0" Name="txtDisplay" Text="localhost:0.0" />
+            <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True">接続</Button>
+        </Grid>
+
+        <Grid Grid.Row="2" Background="Black">
+            <Image Name="imgScreen" StretchDirection="DownOnly" />
+        </Grid>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Vertical">
+                <!-- TODO: ダブルクリックでコピペとかしたい -->
+                <TextBlock Text="ゲーム領域サイズ: 0 x 0" />
+                <TextBlock Text="カーソル位置1: 0, 0" />
+                <TextBlock Text="カーソル位置2: 0.0, 0.0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Vertical">
+                <Button>画像ハッシュ</Button>
+                <Button>カーソル保存</Button>
+            </StackPanel>
+
+            <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">
+                <Image Name="imgCursor" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -26,6 +26,9 @@ namespace WagahighChoices.Toa
             {
                 var s = x11Client.Screens[screen];
                 var wagahighWindow = await FindWagahighWindow(x11Client, s.Root).ConfigureAwait(false);
+
+                await x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
+
                 var contentWindow = await FindContentWindow(x11Client, wagahighWindow).ConfigureAwait(false);
                 var contentPoint = await x11Client.TranslateCoordinatesAsync(contentWindow.window, s.Root, 0, 0).ConfigureAwait(false);
 

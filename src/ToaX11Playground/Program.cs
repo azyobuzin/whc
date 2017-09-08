@@ -28,11 +28,11 @@ namespace ToaX11Playground
                 var wagahighWindow = await FindWagahighWindow(client, screen.Root).ConfigureAwait(false);
                 await client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
 
-                //var getImageResult = await client.GetImageAsync(screen.RootWindow, 0, 0, screen.Width, screen.Height, uint.MaxValue, GetImageFormat.ZPixmap).ConfigureAwait(false);
-                //Console.WriteLine("Depth: " + getImageResult.Depth);
-                //Console.WriteLine("RGB: {0:x8}, {1:x8}, {2:x8}", getImageResult.Visual.RedMask, getImageResult.Visual.GreenMask, getImageResult.Visual.BlueMask);
+                var getImageResult = await client.GetImageAsync(screen.Root, 0, 0, screen.Width, screen.Height, uint.MaxValue, GetImageFormat.ZPixmap).ConfigureAwait(false);
+                Console.WriteLine("Depth: " + getImageResult.Depth);
+                Console.WriteLine("RGB: {0:x8}, {1:x8}, {2:x8}", getImageResult.Visual.RedMask, getImageResult.Visual.GreenMask, getImageResult.Visual.BlueMask);
 
-                //SaveImage(getImageResult.Data, screen.Width, screen.Height);
+                SaveImage(getImageResult.Data, screen.Width, screen.Height);
 
                 /*
                 for (var i = 0; ; i++)
@@ -44,6 +44,7 @@ namespace ToaX11Playground
                 }
                 */
 
+                /*
                 var rng = new Random();
 
                 while (true)
@@ -57,6 +58,7 @@ namespace ToaX11Playground
 
                     await Task.Delay(500).ConfigureAwait(false);
                 }
+                */
             }
         }
 
