@@ -5,32 +5,32 @@ using ImageSharp.PixelFormats;
 
 namespace WagahighChoices.Toa
 {
-    /// <remarks>リトルエンディアンじゃなかったら死ぬ</remarks>
+    /// <summary><see cref="Argb32"/> の A を無視したやつ</summary>
     public struct Rgb2432 : IPixel<Rgb2432>, IPackedVector<uint>
     {
         public uint PackedValue { get; set; }
 
         public byte R
         {
-            get => (byte)(this.PackedValue >> 8);
-            set => this.PackedValue = (this.PackedValue & 0xFFFF00FF) | ((uint)value) << 8;
-        }
-
-        public byte G
-        {
             get => (byte)(this.PackedValue >> 16);
             set => this.PackedValue = (this.PackedValue & 0xFF00FFFF) | ((uint)value) << 16;
         }
 
+        public byte G
+        {
+            get => (byte)(this.PackedValue >> 8);
+            set => this.PackedValue = (this.PackedValue & 0xFFFF00FF) | ((uint)value) << 8;
+        }
+
         public byte B
         {
-            get => (byte)(this.PackedValue >> 24);
-            set => this.PackedValue = (this.PackedValue & 0x00FFFFFF) | ((uint)value) << 24;
+            get => (byte)this.PackedValue;
+            set => this.PackedValue = (this.PackedValue & 0xFFFFFF00) | value;
         }
 
         public Rgb2432(byte r, byte g, byte b)
         {
-            this.PackedValue = ((uint)r) << 8 | ((uint)g) << 16 | ((uint)b) << 24;
+            this.PackedValue = (uint)(r << 16 | g << 8 | b);
         }
 
         public static bool operator ==(Rgb2432 x, Rgb2432 y) => x.PackedValue == y.PackedValue;
@@ -45,7 +45,12 @@ namespace WagahighChoices.Toa
 
         public PixelOperations<Rgb2432> CreatePixelOperations() => new PixelOperations<Rgb2432>();
 
-        public void PackFromRgba32(Rgba32 source) => this.PackedValue = source.PackedValue << 8;
+        public void PackFromRgba32(Rgba32 source)
+        {
+            this.R = source.R;
+            this.G = source.G;
+            this.B = source.B;
+        }
 
         public void PackFromVector4(Vector4 vector)
         {
@@ -76,7 +81,13 @@ namespace WagahighChoices.Toa
             dest.B = this.B;
         }
 
-        public void ToRgba32(ref Rgba32 dest) => dest.PackedValue = this.PackedValue >> 8 | 0xFF000000;
+        public void ToRgba32(ref Rgba32 dest)
+        {
+            dest.R = this.R;
+            dest.G = this.G;
+            dest.B = this.B;
+            dest.A = 255;
+        }
 
         public Vector4 ToVector4() => new Vector4(this.R, this.G, this.B, 255) / 255;
     }

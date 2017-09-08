@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using ImageSharp;
 using ImageSharp.PixelFormats;
+using WagahighChoices.Toa;
 using WagahighChoices.Toa.X11;
 
 namespace ToaX11Playground
@@ -99,19 +100,15 @@ namespace ToaX11Playground
 
         private static void SaveImage(byte[] data, int width, int height)
         {
-            using (var img = Image.LoadPixelData<Argb32>(new Span<byte>(data), width, height))
+            using (var img = Image.LoadPixelData<Rgb2432>(data, width, height))
             {
-                var pixels = img.Pixels;
-                for (var i = 0; i < pixels.Length; i++)
-                    pixels[i].A = 255;
-
                 img.Save("screen0.png");
             }
         }
 
         private static void SaveCursor(byte[] data, int width, int height, string fileName)
         {
-            using (var img = Image.LoadPixelData<Argb32>(new Span<byte>(data), width, height))
+            using (var img = Image.LoadPixelData<Argb32>(data, width, height))
             {
                 img.Save(fileName);
             }

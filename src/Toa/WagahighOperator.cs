@@ -134,7 +134,7 @@ namespace WagahighChoices.Toa
         public async Task<Image<Argb32>> GetCursorImageAsync()
         {
             var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
-            return Image.LoadPixelData<Argb32>(new Span<byte>(x.CursorImage), x.Width, x.Height);
+            return Image.LoadPixelData<Argb32>(x.CursorImage, x.Width, x.Height);
         }
 
         public void Dispose()
