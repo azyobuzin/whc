@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using static WagahighChoices.Toa.X11.X11Client;
 
@@ -73,9 +74,8 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (QueryVersionReply*)pReplyHeader;
-                            return new ValueTask<XFixesQueryVersionResult>(
-                                new XFixesQueryVersionResult(rep->MajorVersion, rep->MinorVersion));
+                            ref var rep = ref Unsafe.AsRef<QueryVersionReply>(pReplyHeader);
+                            return VT(new XFixesQueryVersionResult(ref rep));
                         }
                     }
                 }
@@ -109,14 +109,13 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetCursorImageReply*)pReplyHeader;
+                            ref var rep = ref Unsafe.AsRef<GetCursorImageReply>(pReplyHeader);
 
-                            var imageLength = rep->Width * rep->Height * 4;
+                            var imageLength = rep.Width * rep.Height * 4;
                             var image = new byte[imageLength];
                             Buffer.BlockCopy(replyContent, 0, image, 0, imageLength);
 
-                            return new ValueTask<XFixesGetCursorImageResult>(
-                                new XFixesGetCursorImageResult(rep, image));
+                            return VT(new XFixesGetCursorImageResult(ref rep, image));
                         }
                     }
                 }
@@ -150,16 +149,15 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetCursorImageAndNameReply*)pReplyHeader;
+                            ref var rep = ref Unsafe.AsRef<GetCursorImageAndNameReply>(pReplyHeader);
 
-                            var imageLength = rep->Width * rep->Height * 4;
+                            var imageLength = rep.Width * rep.Height * 4;
                             var image = new byte[imageLength];
                             Buffer.BlockCopy(replyContent, 0, image, 0, imageLength);
 
-                            var name = X11Client.ReadString8(replyContent, imageLength, rep->NBytes);
+                            var name = ReadString8(replyContent, imageLength, rep.NBytes);
 
-                            return new ValueTask<XFixesGetCursorImageAndNameResult>(
-                                new XFixesGetCursorImageAndNameResult(rep, name, image));
+                            return VT(new XFixesGetCursorImageAndNameResult(ref rep, name, image));
                         }
                     }
                 }

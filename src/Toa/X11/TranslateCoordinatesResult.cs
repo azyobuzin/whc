@@ -15,12 +15,12 @@
             this.DstY = dstY;
         }
 
-        internal unsafe TranslateCoordinatesResult(X11Client.TranslateCoordinatesReply* reply)
+        internal TranslateCoordinatesResult(ref X11Client.TranslateCoordinatesReply reply)
         {
-            this.SameScreen = reply->SameScreen;
-            this.Child = reply->Child;
-            this.DstX = reply->DstX;
-            this.DstY = reply->DstY;
+            this.SameScreen = reply.SameScreen;
+            this.Child = reply.Child;
+            this.DstX = reply.DstX;
+            this.DstY = reply.DstY;
         }
     }
 }

@@ -21,15 +21,15 @@
             this.BorderWidth = borderWidth;
         }
 
-        internal unsafe GetGeometryResult(X11Client.GetGeometryReply* reply)
+        internal GetGeometryResult(ref X11Client.GetGeometryReply reply)
         {
-            this.Root = reply->Root;
-            this.Depth = reply->Depth;
-            this.X = reply->X;
-            this.Y = reply->Y;
-            this.Width = reply->Width;
-            this.Height = reply->Height;
-            this.BorderWidth = reply->BorderWidth;
+            this.Root = reply.Root;
+            this.Depth = reply.Depth;
+            this.X = reply.X;
+            this.Y = reply.Y;
+            this.Width = reply.Width;
+            this.Height = reply.Height;
+            this.BorderWidth = reply.BorderWidth;
         }
     }
 }

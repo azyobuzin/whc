@@ -27,16 +27,16 @@
             this.CursorImage = cursorImage;
         }
 
-        internal unsafe XFixesGetCursorImageAndNameResult(XFixes.GetCursorImageAndNameReply* reply, string cursorName, byte[] cursorImage)
+        internal XFixesGetCursorImageAndNameResult(ref XFixes.GetCursorImageAndNameReply reply, string cursorName, byte[] cursorImage)
         {
-            this.X = reply->X;
-            this.Y = reply->Y;
-            this.Width = reply->Width;
-            this.Height = reply->Height;
-            this.XHot = reply->XHot;
-            this.YHot = reply->YHot;
-            this.CursorSerial = reply->CursorSerial;
-            this.CursorAtom = reply->CursorAtom;
+            this.X = reply.X;
+            this.Y = reply.Y;
+            this.Width = reply.Width;
+            this.Height = reply.Height;
+            this.XHot = reply.XHot;
+            this.YHot = reply.YHot;
+            this.CursorSerial = reply.CursorSerial;
+            this.CursorAtom = reply.CursorAtom;
             this.CursorName = cursorName;
             this.CursorImage = cursorImage;
         }

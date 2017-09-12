@@ -23,15 +23,15 @@
             this.CursorImage = cursorImage;
         }
 
-        internal unsafe XFixesGetCursorImageResult(XFixes.GetCursorImageReply* reply, byte[] cursorImage)
+        internal XFixesGetCursorImageResult(ref XFixes.GetCursorImageReply reply, byte[] cursorImage)
         {
-            this.X = reply->X;
-            this.Y = reply->Y;
-            this.Width = reply->Width;
-            this.Height = reply->Height;
-            this.XHot = reply->XHot;
-            this.YHot = reply->YHot;
-            this.CursorSerial = reply->CursorSerial;
+            this.X = reply.X;
+            this.Y = reply.Y;
+            this.Width = reply.Width;
+            this.Height = reply.Height;
+            this.XHot = reply.XHot;
+            this.YHot = reply.YHot;
+            this.CursorSerial = reply.CursorSerial;
             this.CursorImage = cursorImage;
         }
     }

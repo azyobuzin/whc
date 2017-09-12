@@ -13,11 +13,11 @@
             this.FirstError = firstError;
         }
 
-        internal unsafe QueryExtensionResult(X11Client.QueryExtensionReply* reply)
+        internal QueryExtensionResult(ref X11Client.QueryExtensionReply reply)
         {
-            this.MajorOpcode = reply->MajorOpcode;
-            this.FirstEvent = reply->FirstEvent;
-            this.FirstError = reply->FirstError;
+            this.MajorOpcode = reply.MajorOpcode;
+            this.FirstEvent = reply.FirstEvent;
+            this.FirstError = reply.FirstError;
         }
     }
 }

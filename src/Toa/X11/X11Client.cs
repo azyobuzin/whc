@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -211,6 +212,8 @@ namespace WagahighChoices.Toa.X11
             Encoding.UTF8.GetBytes(s, 0, s.Length, buffer, index);
         }
 
+        internal static ValueTask<T> VT<T>(T result) => new ValueTask<T>(result);
+
         private async Task SetupConnectionAsync()
         {
             SetupResponseHeader responseHeader;
@@ -264,11 +267,15 @@ namespace WagahighChoices.Toa.X11
                     throw new X11Exception("Authentication is required: "
                         + ReadString8(buf, 0, additionalDataLength).TrimEnd('\0'));
                 case 1: // Success
+                    this.ReadSetupResponse(buf, additionalDataLength);
                     break;
                 default:
                     throw new X11Exception("Unexpected response status");
             }
+        }
 
+        private void ReadSetupResponse(byte[] buf, int additionalDataLength)
+        {
             if (additionalDataLength < SetupResponseDataSize)
                 throw new X11Exception("Too small response");
 
@@ -279,40 +286,40 @@ namespace WagahighChoices.Toa.X11
             {
                 fixed (byte* p = buf)
                 {
-                    var setupRes = (SetupResponseData*)p;
+                    ref var setupRes = ref Unsafe.AsRef<SetupResponseData>(p);
 
-                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, setupRes->LengthOfVendor);
+                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, setupRes.LengthOfVendor);
 
-                    screens = new Screen[setupRes->NumberOfScreens];
+                    screens = new Screen[setupRes.NumberOfScreens];
                     var screenIndex = 0;
 
-                    var offset = SetupResponseDataSize + setupRes->LengthOfVendor
-                        + ComputePad(setupRes->LengthOfVendor) + 8 * setupRes->NumberOfFormats;
+                    var offset = SetupResponseDataSize + setupRes.LengthOfVendor
+                        + ComputePad(setupRes.LengthOfVendor) + 8 * setupRes.NumberOfFormats;
 
-                    while (screenIndex < setupRes->NumberOfScreens)
+                    while (screenIndex < setupRes.NumberOfScreens)
                     {
                         if (offset + SetupScreenDataSize > additionalDataLength)
                             throw new X11Exception("Too many screens");
 
-                        var screen = (SetupScreenData*)&p[offset];
-                        screens[screenIndex++] = new Screen(screen);
+                        ref var screen = ref Unsafe.AsRef<SetupScreenData>(&p[offset]);
+                        screens[screenIndex++] = new Screen(ref screen);
 
                         offset += SetupScreenDataSize;
 
-                        for (var i = 0; i < screen->NumberOfAllowedDepths; i++)
+                        for (var i = 0; i < screen.NumberOfAllowedDepths; i++)
                         {
                             if (offset + SetupDepthDataSize > additionalDataLength)
                                 throw new X11Exception("Too many screens");
 
-                            var depth = (SetupDepthData*)&p[offset];
+                            ref var depth = ref Unsafe.AsRef<SetupDepthData>(&p[offset]);
                             offset += SetupDepthDataSize;
 
-                            if (offset + VisualTypeSize * depth->NumberOfVisuals > additionalDataLength)
+                            if (offset + VisualTypeSize * depth.NumberOfVisuals > additionalDataLength)
                                 throw new X11Exception("Too many screens");
 
-                            for (var j = 0; j < depth->NumberOfVisuals; j++)
+                            for (var j = 0; j < depth.NumberOfVisuals; j++)
                             {
-                                var visual = *(VisualType*)&p[offset];
+                                ref var visual = ref Unsafe.AsRef<VisualType>(&p[offset]);
                                 visualTypes.Add(visual.VisualId, visual);
                                 offset += VisualTypeSize;
                             }
@@ -516,8 +523,8 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetGeometryReply*)pReplyHeader;
-                            return new ValueTask<GetGeometryResult>(new GetGeometryResult(rep));
+                            ref var rep = ref Unsafe.AsRef<GetGeometryReply>(pReplyHeader);
+                            return VT(new GetGeometryResult(ref rep));
                         }
                     }
                 }
@@ -549,22 +556,21 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (QueryTreeReply*)pReplyHeader;
+                            ref var rep = ref Unsafe.AsRef<QueryTreeReply>(pReplyHeader);
 
-                            if (rep->Header.ReplyLength < rep->NumberOfChildren)
+                            if (rep.Header.ReplyLength < rep.NumberOfChildren)
                                 throw new X11Exception("Too many children");
 
-                            var children = new uint[rep->NumberOfChildren];
+                            var children = new uint[rep.NumberOfChildren];
 
                             fixed (byte* pReplyContent = replyContent)
                             {
                                 var pChildren = (uint*)pReplyContent;
-                                for (var i = 0; i < rep->NumberOfChildren; i++)
+                                for (var i = 0; i < rep.NumberOfChildren; i++)
                                     children[i] = pChildren[i];
                             }
 
-                            return new ValueTask<QueryTreeResult>(
-                                new QueryTreeResult(rep->Root, rep->Parent, children));
+                            return VT(new QueryTreeResult(rep.Root, rep.Parent, children));
                         }
                     }
                 }
@@ -574,12 +580,12 @@ namespace WagahighChoices.Toa.X11
         public ValueTask<uint> InternAtomAsync(string name, bool onlyIfExists)
         {
             if (this._atomCache.TryGetValue(name, out var atom))
-                return new ValueTask<uint>(atom);
+                return VT(atom);
 
             var nameLength = GetByteCountForString8(name);
             var requestLength = InternAtomRequestSize + nameLength + ComputePad(nameLength);
 
-            return new ValueTask<uint>(this.SendRequestAsync(
+            return this.SendRequestAsync(
                 requestLength,
                 buf =>
                 {
@@ -605,16 +611,16 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (InternAtomReply*)pReplyHeader;
+                            ref var rep = ref Unsafe.AsRef<InternAtomReply>(pReplyHeader);
 
-                            if (rep->Atom != 0)
-                                this._atomCache[name] = rep->Atom;
+                            if (rep.Atom != 0)
+                                this._atomCache[name] = rep.Atom;
 
-                            return new ValueTask<uint>(rep->Atom);
+                            return VT(rep.Atom);
                         }
                     }
                 }
-            ));
+            ).ToValueTask();
         }
 
         public Task<string> GetAtomNameAsync(uint atom)
@@ -642,9 +648,8 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetAtomNameReply*)pReplyHeader;
-                            return new ValueTask<string>(
-                                ReadString8(replyContent, 0, rep->LengthOfName));
+                            ref var rep = ref Unsafe.AsRef<GetAtomNameReply>(pReplyHeader);
+                            return VT(ReadString8(replyContent, 0, rep.LengthOfName));
                         }
                     }
                 }
@@ -680,7 +685,7 @@ namespace WagahighChoices.Toa.X11
                         }
                     }
                 },
-                async (replyHeader, replyContent) =>
+                (replyHeader, replyContent) =>
                 {
                     // bytes-after は見ないので maxSize で足りなかったら残念
 
@@ -690,41 +695,38 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetPropertyReply*)pReplyHeader;
-                            type = rep->Type;
+                            ref var rep = ref Unsafe.AsRef<GetPropertyReply>(pReplyHeader);
+                            type = rep.Type;
 
-                            if (type == 0) return null;
+                            if (type == 0) return VT(default(string));
 
                             if (type == PredefinedAtoms.STRING)
                             {
-                                switch (rep->Format)
+                                switch (rep.Format)
                                 {
                                     case 8:
-                                        return ReadString8(replyContent, 0, (int)rep->LengthOfValue);
+                                        return VT(ReadString8(replyContent, 0, (int)rep.LengthOfValue));
                                     case 16:
-                                        return ReadString16(replyContent, 0, (int)(rep->LengthOfValue * 2));
+                                        return VT(ReadString16(replyContent, 0, (int)(rep.LengthOfValue * 2)));
                                     default:
-                                        throw new X11Exception("STRING" + rep->Format + " is not supported.");
+                                        throw new X11Exception("STRING" + rep.Format + " is not supported.");
                                 }
                             }
 
                             if (type == utf8TextAtom)
                             {
-                                return ReadUtf8String(replyContent, 0, (int)(rep->LengthOfValue * (rep->Format / 8)));
+                                return VT(ReadUtf8String(replyContent, 0, (int)(rep.LengthOfValue * (rep.Format / 8))));
                             }
                         }
                     }
 
-                    string typeName;
-                    try
-                    {
-                        typeName = await this.GetAtomNameAsync(type).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new X11Exception("Unsuppoted type", ex);
-                    }
-                    throw new X11Exception("Unsupported type '" + typeName + "'");
+                    return this.GetAtomNameAsync(type)
+                        .ContinueWith<string>(t =>
+                        {
+                            if (t.IsFaulted) throw new X11Exception("Unsuppoted type", t.Exception);
+                            throw new X11Exception("Unsupported type '" + t.Result + "'");
+                        })
+                        .ToValueTask();
                 }
             ).ConfigureAwait(false);
         }
@@ -757,9 +759,8 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (TranslateCoordinatesReply*)pReplyHeader;
-                            return new ValueTask<TranslateCoordinatesResult>(
-                                new TranslateCoordinatesResult(rep));
+                            ref var rep = ref Unsafe.AsRef<TranslateCoordinatesReply>(pReplyHeader);
+                            return VT(new TranslateCoordinatesResult(ref rep));
                         }
                     }
                 }
@@ -797,13 +798,12 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (GetImageReply*)pReplyHeader;
+                            ref var rep = ref Unsafe.AsRef<GetImageReply>(pReplyHeader);
 
-                            var data = new byte[rep->ReplyLength * 4];
+                            var data = new byte[rep.ReplyLength * 4];
                             Buffer.BlockCopy(replyContent, 0, data, 0, data.Length);
 
-                            return new ValueTask<GetImageResult>(
-                                new GetImageResult(rep->Depth, this._visualTypes[rep->Visual], data));
+                            return VT(new GetImageResult(rep.Depth, this._visualTypes[rep.Visual], data));
                         }
                     }
                 }
@@ -840,9 +840,8 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* pReplyHeader = replyHeader)
                         {
-                            var rep = (QueryExtensionReply*)pReplyHeader;
-                            return new ValueTask<QueryExtensionResult>(
-                                rep->Present ? new QueryExtensionResult(rep) : null);
+                            ref var rep = ref Unsafe.AsRef<QueryExtensionReply>(pReplyHeader);
+                            return VT(rep.Present ? new QueryExtensionResult(ref rep) : null);
                         }
                     }
                 }

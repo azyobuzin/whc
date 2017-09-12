@@ -16,7 +16,7 @@ namespace WagahighChoices.Toa.X11
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct QueryVersionReply
+        internal struct QueryVersionReply
         {
             public EventOrReplyHeader Header;
             public uint MajorVersion;
