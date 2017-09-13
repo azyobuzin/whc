@@ -54,17 +54,13 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(QueryVersionRequest*)p = new QueryVersionRequest()
-                            {
-                                Header = new ExtensionRequestHeader()
-                                {
-                                    MajorOpcode = this._majorOpcode.Value,
-                                    MinorOpcode = 0,
-                                    RequestLength = QueryVersionRequestSize / 4,
-                                },
-                                ClientMajorVersion = clientMajorVersion,
-                                ClientMinorVersion = clientMinorVersion,
-                            };
+                            ref var req = ref Unsafe.AsRef<QueryVersionRequest>(p);
+                            req = default;
+                            req.Header.MajorOpcode = this._majorOpcode.Value;
+                            req.Header.MinorOpcode = 0;
+                            req.Header.RequestLength = QueryVersionRequestSize / 4;
+                            req.ClientMajorVersion = clientMajorVersion;
+                            req.ClientMinorVersion = clientMinorVersion;
                         }
                     }
                 },
@@ -94,12 +90,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(ExtensionRequestHeader*)p = new ExtensionRequestHeader()
-                            {
-                                MajorOpcode = this._majorOpcode.Value,
-                                MinorOpcode = 4,
-                                RequestLength = ExtensionRequestHeaderSize / 4,
-                            };
+                            ref var req = ref Unsafe.AsRef<ExtensionRequestHeader>(p);
+                            req = default;
+                            req.MajorOpcode = this._majorOpcode.Value;
+                            req.MinorOpcode = 4;
+                            req.RequestLength = ExtensionRequestHeaderSize / 4;
                         }
                     }
                 },
@@ -134,12 +129,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(ExtensionRequestHeader*)p = new ExtensionRequestHeader()
-                            {
-                                MajorOpcode = this._majorOpcode.Value,
-                                MinorOpcode = 25,
-                                RequestLength = ExtensionRequestHeaderSize / 4,
-                            };
+                            ref var req = ref Unsafe.AsRef<ExtensionRequestHeader>(p);
+                            req = default;
+                            req.MajorOpcode = this._majorOpcode.Value;
+                            req.MinorOpcode = 25;
+                            req.RequestLength = ExtensionRequestHeaderSize / 4;
                         }
                     }
                 },

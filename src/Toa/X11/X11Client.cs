@@ -112,11 +112,13 @@ namespace WagahighChoices.Toa.X11
 
                 this._sequenceNumber++;
             }
+            /*
             catch
             {
                 //this._replyActions.TryRemove(sequenceNumber, out var _);
                 throw;
             }
+            */
             finally
             {
                 this._requestSemaphore.Release();
@@ -224,14 +226,12 @@ namespace WagahighChoices.Toa.X11
             {
                 fixed (byte* p = buf)
                 {
-                    *(SetupRequestData*)p = new SetupRequestData()
-                    {
-                        ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42,
-                        ProtocolMajorVersion = 11,
-                        ProtocolMinorVersion = 0,
-                        LengthOfAuthorizationProtocolName = 0,
-                        LengthOfAuthorizationProtocolData = 0,
-                    };
+                    var req = (SetupRequestData*)p;
+                    req->ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42;
+                    req->ProtocolMajorVersion = 11;
+                    req->ProtocolMinorVersion = 0;
+                    req->LengthOfAuthorizationProtocolName = 0;
+                    req->LengthOfAuthorizationProtocolData = 0;
                 }
             }
 
@@ -449,13 +449,12 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(ConfigureWindowRequest*)p = new ConfigureWindowRequest()
-                            {
-                                Opcode = 12,
-                                RequestLength = (ushort)(requestLength / 4),
-                                Window = window,
-                                ValueMask = valueMask,
-                            };
+                            ref var req = ref Unsafe.AsRef<ConfigureWindowRequest>(p);
+                            req = default;
+                            req.Opcode = 12;
+                            req.RequestLength = (ushort)(requestLength / 4);
+                            req.Window = window;
+                            req.ValueMask = valueMask;
 
                             var pv = &p[ConfigureWindowRequestSize];
                             if (x.HasValue)
@@ -508,12 +507,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(GetGeometryRequest*)p = new GetGeometryRequest()
-                            {
-                                Opcode = 14,
-                                RequestLength = 2,
-                                Drawable = drawable,
-                            };
+                            ref var req = ref Unsafe.AsRef<GetGeometryRequest>(p);
+                            req = default;
+                            req.Opcode = 14;
+                            req.RequestLength = 2;
+                            req.Drawable = drawable;
                         }
                     }
                 },
@@ -541,12 +539,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(QueryTreeRequest*)p = new QueryTreeRequest()
-                            {
-                                Opcode = 15,
-                                RequestLength = 2,
-                                Window = window,
-                            };
+                            ref var req = ref Unsafe.AsRef<QueryTreeRequest>(p);
+                            req = default;
+                            req.Opcode = 15;
+                            req.RequestLength = 2;
+                            req.Window = window;
                         }
                     }
                 },
@@ -593,13 +590,12 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(InternAtomRequest*)p = new InternAtomRequest()
-                            {
-                                Opcode = 16,
-                                OnlyIfExists = onlyIfExists,
-                                RequestLength = (ushort)(requestLength / 4),
-                                LengthOfName = (ushort)nameLength,
-                            };
+                            ref var req = ref Unsafe.AsRef<InternAtomRequest>(p);
+                            req = default;
+                            req.Opcode = 16;
+                            req.OnlyIfExists = onlyIfExists;
+                            req.RequestLength = (ushort)(requestLength / 4);
+                            req.LengthOfName = (ushort)nameLength;
                         }
                     }
 
@@ -633,12 +629,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(GetAtomNameRequest*)p = new GetAtomNameRequest()
-                            {
-                                Opcode = 17,
-                                RequestLength = 2,
-                                Atom = atom,
-                            };
+                            ref var req = ref Unsafe.AsRef<GetAtomNameRequest>(p);
+                            req = default;
+                            req.Opcode = 17;
+                            req.RequestLength = 2;
+                            req.Atom = atom;
                         }
                     }
                 },
@@ -671,17 +666,16 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(GetPropertyRequest*)p = new GetPropertyRequest()
-                            {
-                                Opcode = 20,
-                                Delete = false,
-                                RequestLength = 6,
-                                Window = window,
-                                Property = property,
-                                Type = 0,
-                                LongOffset = 0,
-                                LongLength = maxSize,
-                            };
+                            ref var req = ref Unsafe.AsRef<GetPropertyRequest>(p);
+                            req = default;
+                            req.Opcode = 20;
+                            req.Delete = false;
+                            req.RequestLength = 6;
+                            req.Window = window;
+                            req.Property = property;
+                            req.Type = 0;
+                            req.LongOffset = 0;
+                            req.LongLength = maxSize;
                         }
                     }
                 },
@@ -721,11 +715,16 @@ namespace WagahighChoices.Toa.X11
                     }
 
                     return this.GetAtomNameAsync(type)
-                        .ContinueWith<string>(t =>
-                        {
-                            if (t.IsFaulted) throw new X11Exception("Unsuppoted type", t.Exception);
-                            throw new X11Exception("Unsupported type '" + t.Result + "'");
-                        })
+                        .ContinueWith<string>(
+                            t =>
+                            {
+                                if (t.IsFaulted) throw new X11Exception("Unsuppoted type", t.Exception);
+                                throw new X11Exception("Unsupported type '" + t.Result + "'");
+                            },
+                            CancellationToken.None,
+                            TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.NotOnCanceled,
+                            TaskScheduler.Default
+                        )
                         .ToValueTask();
                 }
             ).ConfigureAwait(false);
@@ -741,15 +740,14 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(TranslateCoordinatesRequest*)p = new TranslateCoordinatesRequest()
-                            {
-                                Opcode = 40,
-                                RequestLength = 4,
-                                SrcWindow = srcWindow,
-                                DstWindow = dstWindow,
-                                SrcX = srcX,
-                                SrcY = srcY,
-                            };
+                            ref var req = ref Unsafe.AsRef<TranslateCoordinatesRequest>(p);
+                            req = default;
+                            req.Opcode = 40;
+                            req.RequestLength = 4;
+                            req.SrcWindow = srcWindow;
+                            req.DstWindow = dstWindow;
+                            req.SrcX = srcX;
+                            req.SrcY = srcY;
                         }
                     }
                 },
@@ -777,18 +775,17 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(GetImageRequest*)p = new GetImageRequest()
-                            {
-                                Opcode = 73,
-                                Format = format,
-                                RequestLength = 5,
-                                Drawable = drawable,
-                                X = x,
-                                Y = y,
-                                Width = width,
-                                Height = height,
-                                PlaneMask = planeMask,
-                            };
+                            ref var req = ref Unsafe.AsRef<GetImageRequest>(p);
+                            req = default;
+                            req.Opcode = 73;
+                            req.Format = format;
+                            req.RequestLength = 5;
+                            req.Drawable = drawable;
+                            req.X = x;
+                            req.Y = y;
+                            req.Width = width;
+                            req.Height = height;
+                            req.PlaneMask = planeMask;
                         }
                     }
                 },
@@ -823,12 +820,11 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(QueryExtensionRequest*)p = new QueryExtensionRequest()
-                            {
-                                Opcode = 98,
-                                RequestLength = (ushort)(requestLength / 4),
-                                LengthOfName = (ushort)lengthOfName,
-                            };
+                            ref var req = ref Unsafe.AsRef<QueryExtensionRequest>(p);
+                            req = default;
+                            req.Opcode = 98;
+                            req.RequestLength = (ushort)(requestLength / 4);
+                            req.LengthOfName = (ushort)lengthOfName;
                         }
                     }
 

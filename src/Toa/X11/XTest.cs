@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace WagahighChoices.Toa.X11
 {
@@ -40,21 +41,17 @@ namespace WagahighChoices.Toa.X11
                     {
                         fixed (byte* p = buf)
                         {
-                            *(FakeInputRequest*)p = new FakeInputRequest()
-                            {
-                                Header = new X11Client.ExtensionRequestHeader()
-                                {
-                                    MajorOpcode = this._majorOpcode.Value,
-                                    MinorOpcode = 2,
-                                    RequestLength = 9,
-                                },
-                                Type = type,
-                                Detail = detail,
-                                Time = time,
-                                Root = root,
-                                RootX = rootX,
-                                RootY = rootY,
-                            };
+                            ref var req = ref Unsafe.AsRef<FakeInputRequest>(p);
+                            req = default;
+                            req.Header.MajorOpcode = this._majorOpcode.Value;
+                            req.Header.MinorOpcode = 2;
+                            req.Header.RequestLength = 9;
+                            req.Type = type;
+                            req.Detail = detail;
+                            req.Time = time;
+                            req.Root = root;
+                            req.RootX = rootX;
+                            req.RootY = rootY;
                         }
                     }
                 }

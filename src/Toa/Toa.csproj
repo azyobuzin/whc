@@ -5,6 +5,7 @@
     <AssemblyName>WagahighChoices.Toa</AssemblyName>
     <RootNamespace>WagahighChoices.Toa</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,6 +6,10 @@
         xmlns:local="clr-namespace:WagahighChoices.Mihiro"
         mc:Ignorable="d"
         Title="Mihiro" Height="350" Width="525">
+    <Window.DataContext>
+        <local:MainWindowBindingModel />
+    </Window.DataContext>
+
     <Grid Margin="6">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -23,7 +27,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBox Grid.Column="0" Name="txtDisplay" Text="localhost:0.0" />
-            <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True">接続</Button>
+            <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True" Click="btnConnect_Click">接続</Button>
         </Grid>
 
         <Grid Grid.Row="2" Background="Black">
@@ -39,15 +43,29 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Vertical">
-                <!-- TODO: ダブルクリックでコピペとかしたい -->
-                <TextBlock Text="ゲーム領域サイズ: 0 x 0" />
-                <TextBlock Text="カーソル位置1: 0, 0" />
-                <TextBlock Text="カーソル位置2: 0.0, 0.0" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="ゲーム領域サイズ: " />
+                    <TextBlock Text="{Binding GameWidth}" MouseDown="ValueTextBlock_MouseDown" />
+                    <TextBlock Text=" x " />
+                    <TextBlock Text="{Binding GameHeight}" MouseDown="ValueTextBlock_MouseDown" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="カーソル位置1: " />
+                    <TextBlock Text="{Binding CursorX}" MouseDown="ValueTextBlock_MouseDown" />
+                    <TextBlock Text=" , " />
+                    <TextBlock Text="{Binding CursorY}" MouseDown="ValueTextBlock_MouseDown" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="カーソル位置2: " />
+                    <TextBlock Text="{Binding CursorRatioX}" MouseDown="ValueTextBlock_MouseDown" />
+                    <TextBlock Text=" , " />
+                    <TextBlock Text="{Binding CursorRatioY}" MouseDown="ValueTextBlock_MouseDown" />
+                </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Vertical">
-                <Button>画像ハッシュ</Button>
-                <Button>カーソル保存</Button>
+                <Button Name="btnHash">画像ハッシュ</Button>
+                <Button Name="btnSaveCursor">カーソル保存</Button>
             </StackPanel>
 
             <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">
