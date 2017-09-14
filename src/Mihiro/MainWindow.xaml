@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WagahighChoices.Mihiro"
         mc:Ignorable="d"
-        Title="Mihiro" Height="350" Width="525">
+        Title="Mihiro" Height="510" Width="680" Loaded="Window_Loaded">
     <Window.DataContext>
         <local:MainWindowBindingModel />
     </Window.DataContext>
@@ -31,7 +31,7 @@
         </Grid>
 
         <Grid Grid.Row="2" Background="Black">
-            <Image Name="imgScreen" StretchDirection="DownOnly" />
+            <Image Name="imgScreen" StretchDirection="DownOnly" MouseDown="imgScreen_MouseDown" MouseMove="imgScreen_MouseMove" TouchDown="imgScreen_TouchDownOrMove" TouchMove="imgScreen_TouchDownOrMove" MouseUp="imgScreen_MouseUp" TouchUp="imgScreen_TouchUp" />
         </Grid>
 
         <Grid Grid.Row="4">
@@ -69,7 +69,7 @@
             </StackPanel>
 
             <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">
-                <Image Name="imgCursor" />
+                <Image Name="imgCursor" StretchDirection="DownOnly" />
             </Grid>
         </Grid>
     </Grid>

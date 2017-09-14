@@ -97,10 +97,13 @@ namespace WagahighChoices.Toa
                 this._contentWidth, this._contentHeight, uint.MaxValue, GetImageFormat.ZPixmap
             ).ConfigureAwait(false);
 
-            if (res.Depth != 24 && res.Depth != 32)
-                throw new Exception("非対応の画像形式です。");
+            using (res)
+            {
+                if (res.Depth != 24 && res.Depth != 32)
+                    throw new Exception("非対応の画像形式です。");
 
-            return Image.LoadPixelData<Rgb2432>(new Span<byte>(res.Data), this._contentWidth, this._contentHeight);
+                return Image.LoadPixelData<Rgb2432>(res.Data, this._contentWidth, this._contentHeight);
+            }
         }
 
         public Task SetCursorPositionAsync(int x, int y)
@@ -125,16 +128,10 @@ namespace WagahighChoices.Toa
             ).ConfigureAwait(false);
         }
 
-        public async Task<byte[]> GetCursorImageAsBytesAsync()
-        {
-            var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
-            return x.CursorImage;
-        }
-
         public async Task<Image<Argb32>> GetCursorImageAsync()
         {
-            var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
-            return Image.LoadPixelData<Argb32>(x.CursorImage, x.Width, x.Height);
+            using (var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false))
+                return Image.LoadPixelData<Argb32>(x.CursorImage, x.Width, x.Height);
         }
 
         public void Dispose()

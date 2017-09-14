@@ -797,10 +797,8 @@ namespace WagahighChoices.Toa.X11
                         {
                             ref var rep = ref Unsafe.AsRef<GetImageReply>(pReplyHeader);
 
-                            var data = new byte[rep.ReplyLength * 4];
-                            Buffer.BlockCopy(replyContent, 0, data, 0, data.Length);
-
-                            return VT(new GetImageResult(rep.Depth, this._visualTypes[rep.Visual], data));
+                            return VT(new GetImageResult(rep.Depth, this._visualTypes[rep.Visual],
+                                new ReadOnlySpan<byte>(replyContent, 0, (int)(rep.ReplyLength * 4))));
                         }
                     }
                 }

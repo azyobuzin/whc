@@ -1,6 +1,9 @@
-﻿namespace WagahighChoices.Toa.X11
+﻿using System;
+using System.Buffers;
+
+namespace WagahighChoices.Toa.X11
 {
-    public class XFixesGetCursorImageResult
+    public class XFixesGetCursorImageResult : IDisposable
     {
         public short X { get; }
         public short Y { get; }
@@ -9,9 +12,14 @@
         public ushort XHot { get; }
         public ushort YHot { get; }
         public uint CursorSerial { get; }
-        public byte[] CursorImage { get; }
 
-        public XFixesGetCursorImageResult(short x, short y, ushort width, ushort height, ushort xHot, ushort yHot, uint cursorSerial, byte[] cursorImage)
+        private readonly byte[] _cursorImage;
+        private readonly int _cursorImageLength;
+        public Span<byte> CursorImage => new Span<byte>(this._cursorImage, 0, this._cursorImageLength);
+
+        private bool _disposed;
+
+        public XFixesGetCursorImageResult(short x, short y, ushort width, ushort height, ushort xHot, ushort yHot, uint cursorSerial, ReadOnlySpan<byte> cursorImage)
         {
             this.X = x;
             this.Y = y;
@@ -20,10 +28,12 @@
             this.XHot = xHot;
             this.YHot = yHot;
             this.CursorSerial = cursorSerial;
-            this.CursorImage = cursorImage;
+            this._cursorImage = ArrayPool<byte>.Shared.Rent(cursorImage.Length);
+            cursorImage.CopyTo(this._cursorImage);
+            this._cursorImageLength = cursorImage.Length;
         }
 
-        internal XFixesGetCursorImageResult(ref XFixes.GetCursorImageReply reply, byte[] cursorImage)
+        internal XFixesGetCursorImageResult(ref XFixes.GetCursorImageReply reply, ReadOnlySpan<byte> cursorImage)
         {
             this.X = reply.X;
             this.Y = reply.Y;
@@ -32,7 +42,16 @@
             this.XHot = reply.XHot;
             this.YHot = reply.YHot;
             this.CursorSerial = reply.CursorSerial;
-            this.CursorImage = cursorImage;
+            this._cursorImage = ArrayPool<byte>.Shared.Rent(cursorImage.Length);
+            cursorImage.CopyTo(this._cursorImage);
+            this._cursorImageLength = cursorImage.Length;
+        }
+
+        public void Dispose()
+        {
+            if (this._disposed) return;
+            this._disposed = true;
+            ArrayPool<byte>.Shared.Return(this._cursorImage);
         }
     }
 }

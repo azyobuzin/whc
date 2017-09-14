@@ -106,11 +106,8 @@ namespace WagahighChoices.Toa.X11
                         {
                             ref var rep = ref Unsafe.AsRef<GetCursorImageReply>(pReplyHeader);
 
-                            var imageLength = rep.Width * rep.Height * 4;
-                            var image = new byte[imageLength];
-                            Buffer.BlockCopy(replyContent, 0, image, 0, imageLength);
-
-                            return VT(new XFixesGetCursorImageResult(ref rep, image));
+                            return VT(new XFixesGetCursorImageResult(ref rep,
+                                new ReadOnlySpan<byte>(replyContent, 0, rep.Width * rep.Height * 4)));
                         }
                     }
                 }
@@ -146,12 +143,9 @@ namespace WagahighChoices.Toa.X11
                             ref var rep = ref Unsafe.AsRef<GetCursorImageAndNameReply>(pReplyHeader);
 
                             var imageLength = rep.Width * rep.Height * 4;
-                            var image = new byte[imageLength];
-                            Buffer.BlockCopy(replyContent, 0, image, 0, imageLength);
-
                             var name = ReadString8(replyContent, imageLength, rep.NBytes);
 
-                            return VT(new XFixesGetCursorImageAndNameResult(ref rep, name, image));
+                            return VT(new XFixesGetCursorImageAndNameResult(ref rep, name, new ReadOnlySpan<byte>(replyContent, 0, imageLength)));
                         }
                     }
                 }

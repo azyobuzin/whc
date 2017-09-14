@@ -30,15 +30,15 @@
             set => this.SetToBackingField(ref this._cursorY, value);
         }
 
-        private float _cursorRatioX;
-        public float CursorRatioX
+        private double _cursorRatioX;
+        public double CursorRatioX
         {
             get => this._cursorRatioX;
             set => this.SetToBackingField(ref this._cursorRatioX, value);
         }
 
-        private float _cursorRatioY;
-        public float CursorRatioY
+        private double _cursorRatioY;
+        public double CursorRatioY
         {
             get => this._cursorRatioY;
             set => this.SetToBackingField(ref this._cursorRatioY, value);
