@@ -4,6 +4,7 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,8 +12,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using ImageSharp;
-using ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
 
 namespace WagahighChoices.Mihiro
@@ -155,13 +156,7 @@ namespace WagahighChoices.Mihiro
             source.Lock();
             try
             {
-                unsafe
-                {
-                    img.Pixels.AsBytes().CopyTo(new Span<byte>(
-                        (void*)source.BackBuffer,
-                        source.BackBufferStride * source.PixelHeight
-                    ));
-                }
+                CopyPixels(img.Frames.RootFrame, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
                 source.AddDirtyRect(new Int32Rect(0, 0, source.PixelWidth, source.PixelHeight));
             }
             finally
@@ -174,6 +169,22 @@ namespace WagahighChoices.Mihiro
 
             if (createNewBitmap)
                 this.imgScreen.Source = source;
+        }
+
+        private static unsafe void CopyPixels<TPixel>(ImageFrame<TPixel> frame, IntPtr dest, int destLength)
+            where TPixel : struct, IPixel<TPixel>
+        {
+            var buf = new Span<TPixel>((void*)dest, destLength / Unsafe.SizeOf<TPixel>());
+
+            for (var y = 0; y < frame.Height; y++)
+            {
+                var baseIndex = frame.Width * y;
+
+                for (var x = 0; x < frame.Width; x++)
+                {
+                    buf[baseIndex + x] = frame[x, y];
+                }
+            }
         }
 
         private void imgScreen_MouseDown(object sender, MouseButtonEventArgs e)
@@ -271,13 +282,7 @@ namespace WagahighChoices.Mihiro
 
                 try
                 {
-                    unsafe
-                    {
-                        img.Pixels.AsBytes().CopyTo(new Span<byte>(
-                            (void*)source.BackBuffer,
-                            source.BackBufferStride * source.PixelHeight
-                        ));
-                    }
+                    CopyPixels(img.Frames.RootFrame, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
                     source.AddDirtyRect(new Int32Rect(0, 0, source.PixelWidth, source.PixelHeight));
                 }
                 finally

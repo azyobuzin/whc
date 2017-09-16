@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
-using ImageSharp;
-using ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Toa
@@ -102,7 +102,7 @@ namespace WagahighChoices.Toa
                 if (res.Depth != 24 && res.Depth != 32)
                     throw new Exception("非対応の画像形式です。");
 
-                return Image.LoadPixelData<Rgb2432>(res.Data, this._contentWidth, this._contentHeight);
+                return Image.LoadPixelData<Rgb2432>(res.Data.Array, this._contentWidth, this._contentHeight);
             }
         }
 
@@ -131,7 +131,7 @@ namespace WagahighChoices.Toa
         public async Task<Image<Argb32>> GetCursorImageAsync()
         {
             using (var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false))
-                return Image.LoadPixelData<Argb32>(x.CursorImage, x.Width, x.Height);
+                return Image.LoadPixelData<Argb32>(x.CursorImage.Array, x.Width, x.Height);
         }
 
         public void Dispose()

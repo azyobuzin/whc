@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
-using ImageSharp;
-using ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace WagahighChoices.Toa
 {

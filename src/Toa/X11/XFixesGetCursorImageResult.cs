@@ -13,11 +13,9 @@ namespace WagahighChoices.Toa.X11
         public ushort YHot { get; }
         public uint CursorSerial { get; }
 
-        private readonly byte[] _cursorImage;
+        private byte[] _cursorImage;
         private readonly int _cursorImageLength;
-        public Span<byte> CursorImage => new Span<byte>(this._cursorImage, 0, this._cursorImageLength);
-
-        private bool _disposed;
+        public ArraySegment<byte> CursorImage => new ArraySegment<byte>(this._cursorImage, 0, this._cursorImageLength);
 
         public XFixesGetCursorImageResult(short x, short y, ushort width, ushort height, ushort xHot, ushort yHot, uint cursorSerial, ReadOnlySpan<byte> cursorImage)
         {
@@ -49,9 +47,11 @@ namespace WagahighChoices.Toa.X11
 
         public void Dispose()
         {
-            if (this._disposed) return;
-            this._disposed = true;
-            ArrayPool<byte>.Shared.Return(this._cursorImage);
+            if (this._cursorImage != null)
+            {
+                ArrayPool<byte>.Shared.Return(this._cursorImage);
+                this._cursorImage = null;
+            }
         }
     }
 }

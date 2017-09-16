@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
-using ImageSharp;
-using ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
 using WagahighChoices.Toa.X11;
 
@@ -29,11 +29,13 @@ namespace ToaX11Playground
                 var wagahighWindow = await FindWagahighWindow(client, screen.Root).ConfigureAwait(false);
                 await client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
 
-                var getImageResult = await client.GetImageAsync(screen.Root, 0, 0, screen.Width, screen.Height, uint.MaxValue, GetImageFormat.ZPixmap).ConfigureAwait(false);
-                Console.WriteLine("Depth: " + getImageResult.Depth);
-                Console.WriteLine("RGB: {0:x8}, {1:x8}, {2:x8}", getImageResult.Visual.RedMask, getImageResult.Visual.GreenMask, getImageResult.Visual.BlueMask);
+                using (var getImageResult = await client.GetImageAsync(screen.Root, 0, 0, screen.Width, screen.Height, uint.MaxValue, GetImageFormat.ZPixmap).ConfigureAwait(false))
+                {
+                    Console.WriteLine("Depth: " + getImageResult.Depth);
+                    Console.WriteLine("RGB: {0:x8}, {1:x8}, {2:x8}", getImageResult.Visual.RedMask, getImageResult.Visual.GreenMask, getImageResult.Visual.BlueMask);
 
-                SaveImage(getImageResult.Data, screen.Width, screen.Height);
+                    SaveImage(getImageResult.Data.Array, screen.Width, screen.Height);
+                }
 
                 /*
                 for (var i = 0; ; i++)

@@ -8,11 +8,9 @@ namespace WagahighChoices.Toa.X11
         public byte Depth { get; }
         public VisualType Visual { get; }
 
-        private readonly byte[] _data;
+        private byte[] _data;
         private readonly int _dataLength;
-        public Span<byte> Data => new Span<byte>(this._data, 0, this._dataLength);
-
-        private bool _disposed;
+        public ArraySegment<byte> Data => new ArraySegment<byte>(this._data, 0, this._dataLength);
 
         public GetImageResult(byte depth, VisualType visual, ReadOnlySpan<byte> data)
         {
@@ -25,9 +23,11 @@ namespace WagahighChoices.Toa.X11
 
         public void Dispose()
         {
-            if (this._disposed) return;
-            this._disposed = true;
-            ArrayPool<byte>.Shared.Return(this._data);
+            if (this._data != null)
+            {
+                ArrayPool<byte>.Shared.Return(this._data);
+                this._data = null;
+            }
         }
     }
 

@@ -100,8 +100,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="ImageSharp">
-      <Version>1.0.0-alpha9-00194</Version>
+    <PackageReference Include="SixLabors.ImageSharp">
+      <Version>1.0.0-beta0001</Version>
     </PackageReference>
     <PackageReference Include="System.Reactive.Linq">
       <Version>3.1.1</Version>
