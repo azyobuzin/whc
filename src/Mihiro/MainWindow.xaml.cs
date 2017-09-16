@@ -329,5 +329,30 @@ namespace WagahighChoices.Mihiro
                 MessageBox.Show(this, ex.ToString(), "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private void btnHash_Click(object sender, RoutedEventArgs e)
+        {
+            const int hashLength = 32; // bits * bits / 8
+            const string table = "0123456789abcdef";
+
+            var hash = new byte[hashLength];
+            Blockhash.ComputeHash(this._screenImage.Frames.RootFrame, hash);
+
+            var s = new string('\0', hashLength * 2);
+            unsafe
+            {
+                fixed (char* c = s)
+                {
+                    for (var i = 0; i < hashLength; i++)
+                    {
+                        c[i * 2] = table[hash[i] >> 4];
+                        c[i * 2 + 1] = table[hash[i] & 0xf];
+                    }
+                }
+            }
+
+            Clipboard.SetText(s);
+            MessageBox.Show(this, s, "画像ハッシュ");
+        }
     }
 }

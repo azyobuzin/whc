@@ -64,7 +64,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Vertical">
-                <Button Name="btnHash">画像ハッシュ</Button>
+                <Button Name="btnHash" Click="btnHash_Click">画像ハッシュ</Button>
                 <Button Name="btnSaveCursor">カーソル保存</Button>
             </StackPanel>
 
