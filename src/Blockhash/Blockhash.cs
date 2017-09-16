@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Buffers;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -22,6 +24,74 @@ namespace WagahighChoices
             else
             {
                 ComputeHashSlow(image, bits, destination, ArrayPool<double>.Shared);
+            }
+        }
+
+        public static int GetDistance(ArraySegment<byte> bs1, ArraySegment<byte> bs2)
+        {
+            if (bs1.Count != bs2.Count) throw new ArgumentException("bs1 と b2 の長さが違います。");
+
+            var count = bs1.Count;
+            var distance = 0;
+            var i = 0;
+
+            if (Vector.IsHardwareAccelerated)
+            {
+                var vecSize = Vector<byte>.Count;
+
+                for (; i + vecSize <= count; i += vecSize)
+                {
+                    var vec1 = Vector.AsVectorUInt64(new Vector<byte>(bs1.Array, bs1.Offset + i));
+                    var vec2 = Vector.AsVectorUInt64(new Vector<byte>(bs2.Array, bs2.Offset + i));
+                    var weight = vec1 ^ vec2;
+
+                    // Vector にビットシフトが入ったら全部 Vector でやりたい
+                    for (var j = 0; j < Vector<ulong>.Count; j++)
+                        distance += popcount64c(weight[j]);
+                }
+            }
+
+            for (; count - i >= 8; i += 8)
+            {
+                distance += popcount64c(
+                    Unsafe.As<byte, ulong>(ref bs1.Array[bs1.Offset + i])
+                    ^ Unsafe.As<byte, ulong>(ref bs2.Array[bs2.Offset + i])
+                );
+            }
+
+            for (; count - i >= 4; i += 4)
+            {
+                distance += popcount32(
+                   Unsafe.As<byte, uint>(ref bs1.Array[bs1.Offset + i])
+                   ^ Unsafe.As<byte, uint>(ref bs2.Array[bs2.Offset + i])
+                );
+            }
+
+            for (; i < count; i++)
+            {
+                distance += popcount32(
+                   (uint)bs1.Array[bs1.Offset + i]
+                   ^ bs2.Array[bs2.Offset + i]
+                );
+            }
+
+            return distance;
+
+            // https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
+            int popcount64c(ulong x)
+            {
+                x -= (x >> 1) & 0x5555555555555555;
+                x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
+                x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f;
+                return (int)((x * 0x0101010101010101) >> 56);
+            }
+
+            // https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+            int popcount32(uint v)
+            {
+                v = v - ((v >> 1) & 0x55555555);
+                v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+                return (int)(((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24);
             }
         }
 
