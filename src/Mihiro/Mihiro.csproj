@@ -94,6 +94,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Blockhash\Blockhash.csproj">
+      <Project>{36306247-ac8a-43e1-925e-d65d8f96886f}</Project>
+      <Name>Blockhash</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Toa\Toa.csproj">
       <Project>{454bc3f5-4bb8-4416-b4e2-b895c715d941}</Project>
       <Name>Toa</Name>
