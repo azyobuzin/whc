@@ -171,6 +171,7 @@ namespace WagahighChoices.Mihiro
                 this.imgScreen.Source = source;
         }
 
+        // 遅い、キレそう
         private static unsafe void CopyPixels<TPixel>(ImageFrame<TPixel> frame, IntPtr dest, int destLength)
             where TPixel : struct, IPixel<TPixel>
         {

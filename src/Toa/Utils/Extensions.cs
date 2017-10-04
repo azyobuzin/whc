@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace WagahighChoices.Toa
+namespace WagahighChoices.Toa.Utils
 {
     internal static class Extensions
     {

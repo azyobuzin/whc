@@ -151,6 +151,17 @@ namespace WagahighChoices.Toa.X11
             public int ReplyLength;
         }
 
+        internal const int EmptyRequestHeaderSize = 4;
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = EmptyRequestHeaderSize)]
+        internal struct EmptyRequestHeader
+        {
+            [FieldOffset(0)]
+            public byte Opcode;
+            [FieldOffset(2)]
+            public ushort RequestLength;
+        }
+
         internal const int ExtensionRequestHeaderSize = 4;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1, Size = ExtensionRequestHeaderSize)]

@@ -37,23 +37,17 @@ namespace WagahighChoices.Toa.X11
                 FakeInputRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<FakeInputRequest>(p);
-                            req = default;
-                            req.Header.MajorOpcode = this._majorOpcode.Value;
-                            req.Header.MinorOpcode = 2;
-                            req.Header.RequestLength = 9;
-                            req.Type = type;
-                            req.Detail = detail;
-                            req.Time = time;
-                            req.Root = root;
-                            req.RootX = rootX;
-                            req.RootY = rootY;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, FakeInputRequest>(ref buf[0]);
+                    req = default;
+                    req.Header.MajorOpcode = this._majorOpcode.Value;
+                    req.Header.MinorOpcode = 2;
+                    req.Header.RequestLength = 9;
+                    req.Type = type;
+                    req.Detail = detail;
+                    req.Time = time;
+                    req.Root = root;
+                    req.RootX = rootX;
+                    req.RootY = rootY;
                 }
             ).ConfigureAwait(false);
         }

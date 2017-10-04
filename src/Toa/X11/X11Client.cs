@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WagahighChoices.Toa.Utils;
 
 namespace WagahighChoices.Toa.X11
 {
@@ -100,25 +101,72 @@ namespace WagahighChoices.Toa.X11
 
         protected internal async Task SendRequestAsync(int requestSize, Action<byte[]> createRequest)
         {
+            var tcs = new TaskCompletionSource<Unit>();
+            ushort sequenceNumber = 0;
+
+            Task mainReplyAction(byte[] replyHeader, byte[] replyContent, Exception exception)
+            {
+                tcs.SetException(exception ?? new InvalidOperationException("Received an unexpected reply."));
+                return Task.CompletedTask;
+            }
+
+            Task syncReplyAction(byte[] replyHeader, byte[] replyContent, Exception exception)
+            {
+                Debug.Assert(sequenceNumber > 0);
+                this._replyActions.TryRemove(sequenceNumber, out var _);
+
+                if (exception == null)
+                {
+                    tcs.TrySetResult(Unit.Default);
+                }
+                else
+                {
+                    tcs.TrySetException(exception);
+                }
+
+                return Task.CompletedTask;
+            }
+
+            void createSyncRequest(byte[] buf)
+            {
+                ref var req = ref Unsafe.As<byte, EmptyRequestHeader>(ref buf[0]);
+                req = default;
+                req.Opcode = 43;
+                req.RequestLength = 1;
+            }
+
             await this._requestSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
-                //if (!this._replyActions.TryAdd(sequenceNumber, action))
-                //    throw new InvalidOperationException("Duplicated sequence number");
+                // 1. リクエストを送信
+                sequenceNumber = this._sequenceNumber;
+                if (!this._replyActions.TryAdd(sequenceNumber, mainReplyAction))
+                    throw new InvalidOperationException("Duplicated sequence number");
 
                 EnsureBufferSize(ref this._requestBuffer, requestSize);
                 createRequest(this._requestBuffer);
                 await this.Stream.WriteAsync(this._requestBuffer, 0, requestSize).ConfigureAwait(false);
 
                 this._sequenceNumber++;
+
+                // 2. 次のリクエストのリプライが返ってくる前に 1 へのエラーが返ってくるんじゃねえかなぁ
+                if (!this._replyActions.TryAdd((ushort)(sequenceNumber + 1), syncReplyAction))
+                    throw new InvalidOperationException("Duplicated sequence number");
+
+                // _requestBuffer は最低 8192 あるから EnsureBufferSize は要らない
+                createSyncRequest(this._requestBuffer);
+                await this.Stream.WriteAsync(this._requestBuffer, 0, EmptyRequestHeaderSize).ConfigureAwait(false);
+
+                this._sequenceNumber++;
             }
-            /*
             catch
             {
-                //this._replyActions.TryRemove(sequenceNumber, out var _);
-                throw;
+                if (sequenceNumber > 0)
+                {
+                    this._replyActions.TryRemove(sequenceNumber, out var _);
+                    this._replyActions.TryRemove((ushort)(sequenceNumber + 1), out var _);
+                }
             }
-            */
             finally
             {
                 this._requestSemaphore.Release();
@@ -218,35 +266,24 @@ namespace WagahighChoices.Toa.X11
 
         private async Task SetupConnectionAsync()
         {
-            SetupResponseHeader responseHeader;
-
-            var buf = new byte[8192]; // Connection Setup のレスポンスがでかい
-
-            unsafe
+            byte[] createBuffer()
             {
-                fixed (byte* p = buf)
-                {
-                    var req = (SetupRequestData*)p;
-                    req->ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42;
-                    req->ProtocolMajorVersion = 11;
-                    req->ProtocolMinorVersion = 0;
-                    req->LengthOfAuthorizationProtocolName = 0;
-                    req->LengthOfAuthorizationProtocolData = 0;
-                }
+                var b = new byte[8192]; // Connection Setup のレスポンスがでかい
+                ref var req = ref Unsafe.As<byte, SetupRequestData>(ref b[0]);
+                req.ByteOrder = BitConverter.IsLittleEndian ? (byte)0x6c : (byte)0x42;
+                req.ProtocolMajorVersion = 11;
+                req.ProtocolMinorVersion = 0;
+                req.LengthOfAuthorizationProtocolName = 0;
+                req.LengthOfAuthorizationProtocolData = 0;
+                return b;
             }
 
+            var buf = createBuffer();
             await this.Stream.WriteAsync(buf, 0, SetupRequestDataSize).ConfigureAwait(false);
 
             await this.ReadExactAsync(buf, SetupResponseHeaderSize).ConfigureAwait(false);
 
-            unsafe
-            {
-                fixed (byte* p = buf)
-                {
-                    responseHeader = *(SetupResponseHeader*)p;
-                }
-            }
-
+            var responseHeader = Unsafe.ReadUnaligned<SetupResponseHeader>(ref buf[0]);
             var additionalDataLength = responseHeader.LengthOfAdditionalData * 4;
 
             EnsureBufferSize(ref buf, additionalDataLength);
@@ -282,48 +319,42 @@ namespace WagahighChoices.Toa.X11
             Screen[] screens;
             var visualTypes = new Dictionary<uint, VisualType>();
 
-            unsafe
+            ref var setupRes = ref Unsafe.As<byte, SetupResponseData>(ref buf[0]);
+
+            this.ServerVendor = ReadString8(buf, SetupResponseDataSize, setupRes.LengthOfVendor);
+
+            screens = new Screen[setupRes.NumberOfScreens];
+            var screenIndex = 0;
+
+            var offset = SetupResponseDataSize + setupRes.LengthOfVendor
+                + ComputePad(setupRes.LengthOfVendor) + 8 * setupRes.NumberOfFormats;
+
+            while (screenIndex < setupRes.NumberOfScreens)
             {
-                fixed (byte* p = buf)
+                if (offset + SetupScreenDataSize > additionalDataLength)
+                    throw new X11Exception("Too many screens");
+
+                ref var screen = ref Unsafe.As<byte, SetupScreenData>(ref buf[offset]);
+                screens[screenIndex++] = new Screen(ref screen);
+
+                offset += SetupScreenDataSize;
+
+                for (var i = 0; i < screen.NumberOfAllowedDepths; i++)
                 {
-                    ref var setupRes = ref Unsafe.AsRef<SetupResponseData>(p);
+                    if (offset + SetupDepthDataSize > additionalDataLength)
+                        throw new X11Exception("Too many screens");
 
-                    this.ServerVendor = ReadString8(buf, SetupResponseDataSize, setupRes.LengthOfVendor);
+                    ref var depth = ref Unsafe.As<byte, SetupDepthData>(ref buf[offset]);
+                    offset += SetupDepthDataSize;
 
-                    screens = new Screen[setupRes.NumberOfScreens];
-                    var screenIndex = 0;
+                    if (offset + VisualTypeSize * depth.NumberOfVisuals > additionalDataLength)
+                        throw new X11Exception("Too many screens");
 
-                    var offset = SetupResponseDataSize + setupRes.LengthOfVendor
-                        + ComputePad(setupRes.LengthOfVendor) + 8 * setupRes.NumberOfFormats;
-
-                    while (screenIndex < setupRes.NumberOfScreens)
+                    for (var j = 0; j < depth.NumberOfVisuals; j++)
                     {
-                        if (offset + SetupScreenDataSize > additionalDataLength)
-                            throw new X11Exception("Too many screens");
-
-                        ref var screen = ref Unsafe.AsRef<SetupScreenData>(&p[offset]);
-                        screens[screenIndex++] = new Screen(ref screen);
-
-                        offset += SetupScreenDataSize;
-
-                        for (var i = 0; i < screen.NumberOfAllowedDepths; i++)
-                        {
-                            if (offset + SetupDepthDataSize > additionalDataLength)
-                                throw new X11Exception("Too many screens");
-
-                            ref var depth = ref Unsafe.AsRef<SetupDepthData>(&p[offset]);
-                            offset += SetupDepthDataSize;
-
-                            if (offset + VisualTypeSize * depth.NumberOfVisuals > additionalDataLength)
-                                throw new X11Exception("Too many screens");
-
-                            for (var j = 0; j < depth.NumberOfVisuals; j++)
-                            {
-                                ref var visual = ref Unsafe.AsRef<VisualType>(&p[offset]);
-                                visualTypes.Add(visual.VisualId, visual);
-                                offset += VisualTypeSize;
-                            }
-                        }
+                        ref var visual = ref Unsafe.As<byte, VisualType>(ref buf[offset]);
+                        visualTypes.Add(visual.VisualId, visual);
+                        offset += VisualTypeSize;
                     }
                 }
             }
@@ -344,20 +375,11 @@ namespace WagahighChoices.Toa.X11
                 {
                     await this.ReadExactAsync(eventBuffer, eventSize).ConfigureAwait(false);
 
-                    EventOrReplyHeader header;
-                    unsafe
-                    {
-                        fixed (byte* p = eventBuffer)
-                        {
-                            header = *(EventOrReplyHeader*)p;
-                        }
-                    }
-
+                    var header = Unsafe.ReadUnaligned<EventOrReplyHeader>(ref eventBuffer[0]);
                     Debug.WriteLine("Received " + header.EventType);
 
                     if (header.EventType == 0) // Error
                     {
-                        // TODO: Reply なしのリクエストに対するエラーについて考える
                         await callReplyAction(header.SequenceNumber, null, null, new X11Exception(header.ErrorCode.ToString()))
                             .ConfigureAwait(false);
                     }
@@ -389,6 +411,8 @@ namespace WagahighChoices.Toa.X11
                     this._replyActions.Clear();
 
                     // TODO: イベント購読者に例外を流す
+
+                    this.Dispose();
                 }
             }
 
@@ -503,28 +527,16 @@ namespace WagahighChoices.Toa.X11
                 GetGeometryRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<GetGeometryRequest>(p);
-                            req = default;
-                            req.Opcode = 14;
-                            req.RequestLength = 2;
-                            req.Drawable = drawable;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, GetGeometryRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 14;
+                    req.RequestLength = 2;
+                    req.Drawable = drawable;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<GetGeometryReply>(pReplyHeader);
-                            return VT(new GetGeometryResult(ref rep));
-                        }
-                    }
+                    ref var rep = ref Unsafe.As<byte, GetGeometryReply>(ref replyHeader[0]);
+                    return VT(new GetGeometryResult(ref rep));
                 }
             );
         }
@@ -535,41 +547,25 @@ namespace WagahighChoices.Toa.X11
                 QueryTreeRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<QueryTreeRequest>(p);
-                            req = default;
-                            req.Opcode = 15;
-                            req.RequestLength = 2;
-                            req.Window = window;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, QueryTreeRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 15;
+                    req.RequestLength = 2;
+                    req.Window = window;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<QueryTreeReply>(pReplyHeader);
+                    ref var rep = ref Unsafe.As<byte, QueryTreeReply>(ref replyHeader[0]);
 
-                            if (rep.Header.ReplyLength < rep.NumberOfChildren)
-                                throw new X11Exception("Too many children");
+                    if (rep.Header.ReplyLength < rep.NumberOfChildren)
+                        throw new X11Exception("Too many children");
 
-                            var children = new uint[rep.NumberOfChildren];
+                    var children = new uint[rep.NumberOfChildren];
 
-                            fixed (byte* pReplyContent = replyContent)
-                            {
-                                var pChildren = (uint*)pReplyContent;
-                                for (var i = 0; i < rep.NumberOfChildren; i++)
-                                    children[i] = pChildren[i];
-                            }
+                    for (var i = 0; i < rep.NumberOfChildren; i++)
+                        children[i] = Unsafe.ReadUnaligned<uint>(ref replyContent[i * sizeof(uint)]);
 
-                            return VT(new QueryTreeResult(rep.Root, rep.Parent, children));
-                        }
-                    }
+                    return VT(new QueryTreeResult(rep.Root, rep.Parent, children));
                 }
             );
         }
@@ -586,35 +582,23 @@ namespace WagahighChoices.Toa.X11
                 requestLength,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<InternAtomRequest>(p);
-                            req = default;
-                            req.Opcode = 16;
-                            req.OnlyIfExists = onlyIfExists;
-                            req.RequestLength = (ushort)(requestLength / 4);
-                            req.LengthOfName = (ushort)nameLength;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, InternAtomRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 16;
+                    req.OnlyIfExists = onlyIfExists;
+                    req.RequestLength = (ushort)(requestLength / 4);
+                    req.LengthOfName = (ushort)nameLength;
 
                     WriteString8(name, buf, InternAtomRequestSize);
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<InternAtomReply>(pReplyHeader);
+                    ref var rep = ref Unsafe.As<byte, InternAtomReply>(ref replyHeader[0]);
 
-                            if (rep.Atom != 0)
-                                this._atomCache[name] = rep.Atom;
+                    if (rep.Atom != 0)
+                        this._atomCache[name] = rep.Atom;
 
-                            return VT(rep.Atom);
-                        }
-                    }
+                    return VT(rep.Atom);
                 }
             ).ToValueTask();
         }
@@ -625,28 +609,16 @@ namespace WagahighChoices.Toa.X11
                 GetAtomNameRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<GetAtomNameRequest>(p);
-                            req = default;
-                            req.Opcode = 17;
-                            req.RequestLength = 2;
-                            req.Atom = atom;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, GetAtomNameRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 17;
+                    req.RequestLength = 2;
+                    req.Atom = atom;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<GetAtomNameReply>(pReplyHeader);
-                            return VT(ReadString8(replyContent, 0, rep.LengthOfName));
-                        }
-                    }
+                    ref var rep = ref Unsafe.As<byte, GetAtomNameReply>(ref replyHeader[0]);
+                    return VT(ReadString8(replyContent, 0, rep.LengthOfName));
                 }
             );
         }
@@ -662,56 +634,42 @@ namespace WagahighChoices.Toa.X11
                 GetPropertyRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<GetPropertyRequest>(p);
-                            req = default;
-                            req.Opcode = 20;
-                            req.Delete = false;
-                            req.RequestLength = 6;
-                            req.Window = window;
-                            req.Property = property;
-                            req.Type = 0;
-                            req.LongOffset = 0;
-                            req.LongLength = maxSize;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, GetPropertyRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 20;
+                    req.Delete = false;
+                    req.RequestLength = 6;
+                    req.Window = window;
+                    req.Property = property;
+                    req.Type = 0;
+                    req.LongOffset = 0;
+                    req.LongLength = maxSize;
                 },
                 (replyHeader, replyContent) =>
                 {
                     // bytes-after は見ないので maxSize で足りなかったら残念
 
-                    uint type;
+                    ref var rep = ref Unsafe.As<byte, GetPropertyReply>(ref replyHeader[0]);
+                    var type = rep.Type;
 
-                    unsafe
+                    if (type == 0) return VT(default(string));
+
+                    if (type == PredefinedAtoms.STRING)
                     {
-                        fixed (byte* pReplyHeader = replyHeader)
+                        switch (rep.Format)
                         {
-                            ref var rep = ref Unsafe.AsRef<GetPropertyReply>(pReplyHeader);
-                            type = rep.Type;
-
-                            if (type == 0) return VT(default(string));
-
-                            if (type == PredefinedAtoms.STRING)
-                            {
-                                switch (rep.Format)
-                                {
-                                    case 8:
-                                        return VT(ReadString8(replyContent, 0, (int)rep.LengthOfValue));
-                                    case 16:
-                                        return VT(ReadString16(replyContent, 0, (int)(rep.LengthOfValue * 2)));
-                                    default:
-                                        throw new X11Exception("STRING" + rep.Format + " is not supported.");
-                                }
-                            }
-
-                            if (type == utf8TextAtom)
-                            {
-                                return VT(ReadUtf8String(replyContent, 0, (int)(rep.LengthOfValue * (rep.Format / 8))));
-                            }
+                            case 8:
+                                return VT(ReadString8(replyContent, 0, (int)rep.LengthOfValue));
+                            case 16:
+                                return VT(ReadString16(replyContent, 0, (int)(rep.LengthOfValue * 2)));
+                            default:
+                                throw new X11Exception("STRING" + rep.Format + " is not supported.");
                         }
+                    }
+
+                    if (type == utf8TextAtom)
+                    {
+                        return VT(ReadUtf8String(replyContent, 0, (int)(rep.LengthOfValue * (rep.Format / 8))));
                     }
 
                     return this.GetAtomNameAsync(type)
@@ -736,31 +694,19 @@ namespace WagahighChoices.Toa.X11
                 TranslateCoordinatesRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<TranslateCoordinatesRequest>(p);
-                            req = default;
-                            req.Opcode = 40;
-                            req.RequestLength = 4;
-                            req.SrcWindow = srcWindow;
-                            req.DstWindow = dstWindow;
-                            req.SrcX = srcX;
-                            req.SrcY = srcY;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, TranslateCoordinatesRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 40;
+                    req.RequestLength = 4;
+                    req.SrcWindow = srcWindow;
+                    req.DstWindow = dstWindow;
+                    req.SrcX = srcX;
+                    req.SrcY = srcY;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<TranslateCoordinatesReply>(pReplyHeader);
-                            return VT(new TranslateCoordinatesResult(ref rep));
-                        }
-                    }
+                    ref var rep = ref Unsafe.As<byte, TranslateCoordinatesReply>(ref replyHeader[0]);
+                    return VT(new TranslateCoordinatesResult(ref rep));
                 }
             );
         }
@@ -771,36 +717,24 @@ namespace WagahighChoices.Toa.X11
                 GetImageRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<GetImageRequest>(p);
-                            req = default;
-                            req.Opcode = 73;
-                            req.Format = format;
-                            req.RequestLength = 5;
-                            req.Drawable = drawable;
-                            req.X = x;
-                            req.Y = y;
-                            req.Width = width;
-                            req.Height = height;
-                            req.PlaneMask = planeMask;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, GetImageRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 73;
+                    req.Format = format;
+                    req.RequestLength = 5;
+                    req.Drawable = drawable;
+                    req.X = x;
+                    req.Y = y;
+                    req.Width = width;
+                    req.Height = height;
+                    req.PlaneMask = planeMask;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<GetImageReply>(pReplyHeader);
+                    ref var rep = ref Unsafe.As<byte, GetImageReply>(ref replyHeader[0]);
 
-                            return VT(new GetImageResult(rep.Depth, this._visualTypes[rep.Visual],
-                                new ReadOnlySpan<byte>(replyContent, 0, (int)(rep.ReplyLength * 4))));
-                        }
-                    }
+                    return VT(new GetImageResult(rep.Depth, this._visualTypes[rep.Visual],
+                        new ReadOnlySpan<byte>(replyContent, 0, (int)(rep.ReplyLength * 4))));
                 }
             );
         }
@@ -814,30 +748,18 @@ namespace WagahighChoices.Toa.X11
                 requestLength,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<QueryExtensionRequest>(p);
-                            req = default;
-                            req.Opcode = 98;
-                            req.RequestLength = (ushort)(requestLength / 4);
-                            req.LengthOfName = (ushort)lengthOfName;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, QueryExtensionRequest>(ref buf[0]);
+                    req = default;
+                    req.Opcode = 98;
+                    req.RequestLength = (ushort)(requestLength / 4);
+                    req.LengthOfName = (ushort)lengthOfName;
 
                     WriteString8(name, buf, QueryExtensionRequestSize);
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<QueryExtensionReply>(pReplyHeader);
-                            return VT(rep.Present ? new QueryExtensionResult(ref rep) : null);
-                        }
-                    }
+                    ref var rep = ref Unsafe.As<byte, QueryExtensionReply>(ref replyHeader[0]);
+                    return VT(rep.Present ? new QueryExtensionResult(ref rep) : null);
                 }
             );
         }

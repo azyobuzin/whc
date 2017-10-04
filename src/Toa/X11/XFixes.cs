@@ -50,30 +50,18 @@ namespace WagahighChoices.Toa.X11
                 QueryVersionRequestSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<QueryVersionRequest>(p);
-                            req = default;
-                            req.Header.MajorOpcode = this._majorOpcode.Value;
-                            req.Header.MinorOpcode = 0;
-                            req.Header.RequestLength = QueryVersionRequestSize / 4;
-                            req.ClientMajorVersion = clientMajorVersion;
-                            req.ClientMinorVersion = clientMinorVersion;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, QueryVersionRequest>(ref buf[0]);
+                    req = default;
+                    req.Header.MajorOpcode = this._majorOpcode.Value;
+                    req.Header.MinorOpcode = 0;
+                    req.Header.RequestLength = QueryVersionRequestSize / 4;
+                    req.ClientMajorVersion = clientMajorVersion;
+                    req.ClientMinorVersion = clientMinorVersion;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<QueryVersionReply>(pReplyHeader);
-                            return VT(new XFixesQueryVersionResult(ref rep));
-                        }
-                    }
+                    ref var rep = ref Unsafe.As<byte, QueryVersionReply>(ref replyHeader[0]);
+                    return VT(new XFixesQueryVersionResult(ref rep));
                 }
             ).ConfigureAwait(false);
         }
@@ -86,30 +74,18 @@ namespace WagahighChoices.Toa.X11
                 ExtensionRequestHeaderSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<ExtensionRequestHeader>(p);
-                            req = default;
-                            req.MajorOpcode = this._majorOpcode.Value;
-                            req.MinorOpcode = 4;
-                            req.RequestLength = ExtensionRequestHeaderSize / 4;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, ExtensionRequestHeader>(ref buf[0]);
+                    req = default;
+                    req.MajorOpcode = this._majorOpcode.Value;
+                    req.MinorOpcode = 4;
+                    req.RequestLength = ExtensionRequestHeaderSize / 4;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<GetCursorImageReply>(pReplyHeader);
+                    ref var rep = ref Unsafe.As<byte, GetCursorImageReply>(ref replyHeader[0]);
 
-                            return VT(new XFixesGetCursorImageResult(ref rep,
-                                new ReadOnlySpan<byte>(replyContent, 0, rep.Width * rep.Height * 4)));
-                        }
-                    }
+                    return VT(new XFixesGetCursorImageResult(ref rep,
+                        new ReadOnlySpan<byte>(replyContent, 0, rep.Width * rep.Height * 4)));
                 }
             ).ConfigureAwait(false);
         }
@@ -122,32 +98,20 @@ namespace WagahighChoices.Toa.X11
                 ExtensionRequestHeaderSize,
                 buf =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* p = buf)
-                        {
-                            ref var req = ref Unsafe.AsRef<ExtensionRequestHeader>(p);
-                            req = default;
-                            req.MajorOpcode = this._majorOpcode.Value;
-                            req.MinorOpcode = 25;
-                            req.RequestLength = ExtensionRequestHeaderSize / 4;
-                        }
-                    }
+                    ref var req = ref Unsafe.As<byte, ExtensionRequestHeader>(ref buf[0]);
+                    req = default;
+                    req.MajorOpcode = this._majorOpcode.Value;
+                    req.MinorOpcode = 25;
+                    req.RequestLength = ExtensionRequestHeaderSize / 4;
                 },
                 (replyHeader, replyContent) =>
                 {
-                    unsafe
-                    {
-                        fixed (byte* pReplyHeader = replyHeader)
-                        {
-                            ref var rep = ref Unsafe.AsRef<GetCursorImageAndNameReply>(pReplyHeader);
+                    ref var rep = ref Unsafe.As<byte, GetCursorImageAndNameReply>(ref replyHeader[0]);
 
-                            var imageLength = rep.Width * rep.Height * 4;
-                            var name = ReadString8(replyContent, imageLength, rep.NBytes);
+                    var imageLength = rep.Width * rep.Height * 4;
+                    var name = ReadString8(replyContent, imageLength, rep.NBytes);
 
-                            return VT(new XFixesGetCursorImageAndNameResult(ref rep, name, new ReadOnlySpan<byte>(replyContent, 0, imageLength)));
-                        }
-                    }
+                    return VT(new XFixesGetCursorImageAndNameResult(ref rep, name, new ReadOnlySpan<byte>(replyContent, 0, imageLength)));
                 }
             ).ConfigureAwait(false);
         }
