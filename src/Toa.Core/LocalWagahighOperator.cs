@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Toa
 {
-    public class WagahighOperator : IDisposable
+    public class LocalWagahighOperator : WagahighOperator
     {
         private X11Client _x11Client;
         private uint _screenRootWindow;
@@ -16,15 +14,15 @@ namespace WagahighChoices.Toa
         private ushort _contentWidth;
         private ushort _contentHeight;
 
-        private WagahighOperator() { }
+        private LocalWagahighOperator() { }
 
-        public static async Task<WagahighOperator> ConnectAsync(string host, int display, int screen)
+        public static async Task<LocalWagahighOperator> ConnectAsync(DisplayIdentifier displayIdentifier)
         {
-            var x11Client = await X11Client.ConnectAsync(host, display).ConfigureAwait(false);
+            var x11Client = await X11Client.ConnectAsync(displayIdentifier.Host, displayIdentifier.Display).ConfigureAwait(false);
 
             try
             {
-                var s = x11Client.Screens[screen];
+                var s = x11Client.Screens[displayIdentifier.Screen];
                 var wagahighWindow = await FindWagahighWindow(x11Client, s.Root).ConfigureAwait(false);
 
                 await x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
@@ -32,7 +30,7 @@ namespace WagahighChoices.Toa
                 var contentWindow = await FindContentWindow(x11Client, wagahighWindow).ConfigureAwait(false);
                 var contentPoint = await x11Client.TranslateCoordinatesAsync(contentWindow.window, s.Root, 0, 0).ConfigureAwait(false);
 
-                return new WagahighOperator()
+                return new LocalWagahighOperator()
                 {
                     _x11Client = x11Client,
                     _screenRootWindow = s.Root,
@@ -90,23 +88,22 @@ namespace WagahighChoices.Toa
             return (children[maxIndex], geometries[maxIndex].Width, geometries[maxIndex].Height);
         }
 
-        public async Task<Image<Rgb2432>> CaptureContentAsync()
+        public override async Task<Argb32Image> CaptureContentAsync()
         {
+            // TODO: GetGeometry しなおすべきでは？
+
             var res = await this._x11Client.GetImageAsync(
                 this._screenRootWindow, this._contentX, this._contentY,
                 this._contentWidth, this._contentHeight, uint.MaxValue, GetImageFormat.ZPixmap
             ).ConfigureAwait(false);
 
-            using (res)
-            {
-                if (res.Depth != 24 && res.Depth != 32)
-                    throw new Exception("非対応の画像形式です。");
+            if (res.Depth != 24 && res.Depth != 32)
+                throw new Exception("非対応の画像形式です。");
 
-                return Image.LoadPixelData<Rgb2432>(res.Data.Array, this._contentWidth, this._contentHeight);
-            }
+            return new GetImageResultImage(this._contentWidth, this._contentHeight, res);
         }
 
-        public Task SetCursorPositionAsync(int x, int y)
+        public override Task SetCursorPositionAsync(int x, int y)
         {
             checked
             {
@@ -115,7 +112,7 @@ namespace WagahighChoices.Toa
             }
         }
 
-        public async Task MouseClickAsync()
+        public override async Task MouseClickAsync()
         {
             await this._x11Client.XTest.FakeInputAsync(
                 XTestFakeEventType.ButtonPress,
@@ -128,15 +125,16 @@ namespace WagahighChoices.Toa
             ).ConfigureAwait(false);
         }
 
-        public async Task<Image<Argb32>> GetCursorImageAsync()
+        public override async Task<Argb32Image> GetCursorImageAsync()
         {
-            using (var x = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false))
-                return Image.LoadPixelData<Argb32>(x.CursorImage.Array, x.Width, x.Height);
+            var res = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
+            return new GetCursorImageResultImage(res);
         }
 
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            this._x11Client.Dispose();
+            if (!this.IsDisposed && disposing)
+                this._x11Client.Dispose();
         }
     }
 }

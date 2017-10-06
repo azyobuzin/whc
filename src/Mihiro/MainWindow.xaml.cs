@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
+using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Mihiro
 {
@@ -64,12 +65,11 @@ namespace WagahighChoices.Mihiro
                 this._connection = null;
             }
 
-            string host;
-            int display, screen;
+            DisplayIdentifier displayIdentifier;
 
             try
             {
-                (host, display, screen) = ParseDisplayString(this.txtDisplay.Text);
+                displayIdentifier = DisplayIdentifier.Parse(this.txtDisplay.Text);
             }
             catch (Exception ex)
             {
@@ -81,7 +81,7 @@ namespace WagahighChoices.Mihiro
 
             try
             {
-                this._connection = await WagahighOperator.ConnectAsync(host, display, screen);
+                this._connection = await LocalWagahighOperator.ConnectAsync(displayIdentifier);
             }
             catch (Exception ex)
             {
@@ -105,23 +105,6 @@ namespace WagahighChoices.Mihiro
                     this.Dispatcher
                 );
             }
-        }
-
-        private static (string, int, int) ParseDisplayString(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return ("localhost", 0, 0);
-
-            var colonIndex = s.IndexOf(':');
-            if (colonIndex < 0) return (s, 0, 0);
-
-            var host = colonIndex == 0 ? "localhost" : s.Remove(colonIndex);
-
-            var dotIndex = s.IndexOf('.', colonIndex + 1);
-
-            var display = int.Parse(s.Substring(colonIndex + 1, (dotIndex < 0 ? s.Length : dotIndex) - colonIndex - 1));
-            var screen = dotIndex < 0 ? 0 : int.Parse(s.Substring(dotIndex + 1));
-
-            return (host, display, screen);
         }
 
         private async void TimerTick(object sender, EventArgs e)

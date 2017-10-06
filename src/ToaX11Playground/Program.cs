@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using WagahighChoices.Toa;
 using WagahighChoices.Toa.X11;
 
 namespace ToaX11Playground
@@ -102,8 +101,18 @@ namespace ToaX11Playground
 
         private static void SaveImage(byte[] data, int width, int height)
         {
-            using (var img = Image.LoadPixelData<Rgb2432>(data, width, height))
+            using (var img = Image.LoadPixelData<Argb32>(data, width, height))
             {
+                for (var y = 0; y < img.Height; y++)
+                {
+                    for (var x = 0; x < img.Width; x++)
+                    {
+                        var p = img[x, y];
+                        p.A = 255;
+                        img[x, y] = p;
+                    }
+                }
+
                 img.Save("screen0.png");
             }
         }

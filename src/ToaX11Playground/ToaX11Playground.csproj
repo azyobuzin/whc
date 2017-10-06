@@ -6,7 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Toa\Toa.csproj" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0001" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Toa.Core\Toa.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26730.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toa", "Toa\Toa.csproj", "{454BC3F5-4BB8-4416-B4E2-B895C715D941}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toa.Core", "Toa.Core\Toa.Core.csproj", "{454BC3F5-4BB8-4416-B4E2-B895C715D941}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ToaX11Playground", "ToaX11Playground\ToaX11Playground.csproj", "{719E0792-946E-41D4-9D84-3CB451B48208}"
 EndProject
