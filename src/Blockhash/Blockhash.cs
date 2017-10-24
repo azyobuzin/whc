@@ -3,15 +3,13 @@ using System.Buffers;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace WagahighChoices
 {
     public static partial class Blockhash
     {
-        public static void ComputeHash<TPixel>(ImageFrame<TPixel> image, Span<byte> destination, int bits = 16)
-            where TPixel : struct, IPixel<TPixel>
+        public static void ComputeHash<TImage>(TImage image, Span<byte> destination, int bits = 16)
+            where TImage : IInputImage
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
             if (bits < 4 || bits % 4 != 0) throw new ArgumentException("bits が 4 の倍数ではありません。");
@@ -95,8 +93,8 @@ namespace WagahighChoices
             }
         }
 
-        private static void ComputeHashQuick<TPixel>(ImageFrame<TPixel> image, int bits, Span<byte> dest, ArrayPool<ulong> arrayPool)
-            where TPixel : struct, IPixel<TPixel>
+        private static void ComputeHashQuick<TImage>(TImage image, int bits, Span<byte> dest, ArrayPool<ulong> arrayPool)
+            where TImage : IInputImage
         {
             var blocksLength = bits * bits;
 
@@ -118,13 +116,14 @@ namespace WagahighChoices
                     var yEnd = yStart + blockHeight;
 
                     ulong blockValue = 0;
-                    Rgba32 pixel = default;
 
                     for (var y = yStart; y < yEnd; y++)
                     {
+                        var baseIndex = image.Width * y;
+
                         for (var x = xStart; x < xEnd; x++)
                         {
-                            image[x, y].ToRgba32(ref pixel);
+                            var pixel = image.GetPixel(baseIndex + x);
                             blockValue += pixel.A == 0
                                 ? 255UL * 3
                                 : (ulong)pixel.R + pixel.G + pixel.B;
@@ -230,8 +229,8 @@ namespace WagahighChoices
             }
         }
 
-        private static void ComputeHashSlow<TPixel>(ImageFrame<TPixel> image, int bits, Span<byte> dest, ArrayPool<double> arrayPool)
-            where TPixel : struct, IPixel<TPixel>
+        private static void ComputeHashSlow<TImage>(TImage image, int bits, Span<byte> dest, ArrayPool<double> arrayPool)
+            where TImage : IInputImage
         {
             var blocksLength = bits * bits;
 
@@ -253,13 +252,13 @@ namespace WagahighChoices
                     var yEnd = yStart + blockHeight;
 
                     var blockValue = 0.0;
-                    Rgba32 pixel = default;
 
                     var xStartI = (int)xStart;
                     var xEndI = (int)Math.Ceiling(xEnd);
                     var yEndI = (int)Math.Ceiling(yEnd);
                     for (var y = (int)yStart; y < yEndI; y++)
                     {
+                        var baseIndex = image.Width * y;
                         var baseWeight =
                             y - yStart is var pxFromTop && pxFromTop < 0 ? 1.0 + pxFromTop
                             : y - yEnd is var pxFromBottom && pxFromBottom > 0 ? 1.0 - pxFromBottom
@@ -267,7 +266,7 @@ namespace WagahighChoices
 
                         for (var x = xStartI; x < xEndI; x++)
                         {
-                            image[x, y].ToRgba32(ref pixel);
+                            var pixel = image.GetPixel(baseIndex + x);
                             var v = pixel.A == 0
                                 ? 255 * 3
                                 : pixel.R + pixel.G + pixel.B;

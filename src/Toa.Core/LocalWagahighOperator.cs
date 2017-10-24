@@ -8,13 +8,11 @@ namespace WagahighChoices.Toa
     {
         private X11Client _x11Client;
         private uint _screenRootWindow;
-        private uint _wagahighWindow;
-        private short _contentX;
-        private short _contentY;
-        private ushort _contentWidth;
-        private ushort _contentHeight;
+        private uint _contentWindow;
 
         private LocalWagahighOperator() { }
+
+        // TODO: ログファイルの監視とかやるので、プロセスを立ち上げるところからやることになりそう
 
         public static async Task<LocalWagahighOperator> ConnectAsync(DisplayIdentifier displayIdentifier)
         {
@@ -28,17 +26,12 @@ namespace WagahighChoices.Toa
                 await x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
 
                 var contentWindow = await FindContentWindow(x11Client, wagahighWindow).ConfigureAwait(false);
-                var contentPoint = await x11Client.TranslateCoordinatesAsync(contentWindow.window, s.Root, 0, 0).ConfigureAwait(false);
 
                 return new LocalWagahighOperator()
                 {
                     _x11Client = x11Client,
                     _screenRootWindow = s.Root,
-                    _wagahighWindow = wagahighWindow,
-                    _contentX = contentPoint.DstX,
-                    _contentY = contentPoint.DstY,
-                    _contentWidth = contentWindow.width,
-                    _contentHeight = contentWindow.height,
+                    _contentWindow = contentWindow,
                 };
             }
             catch
@@ -61,21 +54,19 @@ namespace WagahighChoices.Toa
             throw new Exception("ウィンドウが見つかりませんでした。");
         }
 
-        private static async Task<(uint window, ushort width, ushort height)> FindContentWindow(X11Client x11Client, uint wagahighWindow)
+        private static async Task<uint> FindContentWindow(X11Client x11Client, uint wagahighWindow)
         {
             var children = (await x11Client.QueryTreeAsync(wagahighWindow).ConfigureAwait(false)).Children;
             var count = children.Count;
 
             if (count == 0) throw new Exception("子ウィンドウがありません。");
 
-            var geometries = new GetGeometryResult[count];
             var maxArea = 0;
             var maxIndex = 0;
 
             for (var i = 0; i < count; i++)
             {
                 var g = await x11Client.GetGeometryAsync(children[i]).ConfigureAwait(false);
-                geometries[i] = g;
 
                 var area = g.Width * g.Height;
                 if (area > maxArea)
@@ -85,31 +76,30 @@ namespace WagahighChoices.Toa
                 }
             }
 
-            return (children[maxIndex], geometries[maxIndex].Width, geometries[maxIndex].Height);
+            return children[maxIndex];
         }
 
         public override async Task<Argb32Image> CaptureContentAsync()
         {
-            // TODO: GetGeometry しなおすべきでは？
+            var contentGeometry = await this._x11Client.GetGeometryAsync(this._contentWindow).ConfigureAwait(false);
+            var contentPoint = await this._x11Client.TranslateCoordinatesAsync(
+                this._contentWindow, this._screenRootWindow, 0, 0).ConfigureAwait(false);
 
             var res = await this._x11Client.GetImageAsync(
-                this._screenRootWindow, this._contentX, this._contentY,
-                this._contentWidth, this._contentHeight, uint.MaxValue, GetImageFormat.ZPixmap
+                this._screenRootWindow, contentPoint.DstX, contentPoint.DstY,
+                contentGeometry.Width, contentGeometry.Height, uint.MaxValue, GetImageFormat.ZPixmap
             ).ConfigureAwait(false);
 
             if (res.Depth != 24 && res.Depth != 32)
                 throw new Exception("非対応の画像形式です。");
 
-            return new GetImageResultImage(this._contentWidth, this._contentHeight, res);
+            return new GetImageResultImage(contentGeometry.Width, contentGeometry.Height, res);
         }
 
-        public override Task SetCursorPositionAsync(int x, int y)
+        public override async Task SetCursorPositionAsync(short x, short y)
         {
-            checked
-            {
-                return this._x11Client.XTest.FakeInputAsync(XTestFakeEventType.MotionNotify, 0, 0,
-                    this._screenRootWindow, (short)(this._contentX + x), (short)(this._contentY + y));
-            }
+            var point = await this._x11Client.TranslateCoordinatesAsync(this._contentWindow, this._screenRootWindow, x, y).ConfigureAwait(false);
+            await this._x11Client.XTest.FakeInputAsync(XTestFakeEventType.MotionNotify, 0, 0, this._screenRootWindow, point.DstX, point.DstY).ConfigureAwait(false);
         }
 
         public override async Task MouseClickAsync()
@@ -135,6 +125,8 @@ namespace WagahighChoices.Toa
         {
             if (!this.IsDisposed && disposing)
                 this._x11Client.Dispose();
+
+            base.Dispose(disposing);
         }
     }
 }

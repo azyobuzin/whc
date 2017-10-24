@@ -23,7 +23,7 @@ namespace WagahighChoices.Toa
         public abstract Task<Argb32Image> CaptureContentAsync();
 
         /// <summary>カーソルをゲーム領域の左上から見て <paramref name="x"/>, <paramref name="y"/> の位置に移動します。</summary>
-        public abstract Task SetCursorPositionAsync(int x, int y);
+        public abstract Task SetCursorPositionAsync(short x, short y);
 
         /// <summary>現在のカーソル位置でクリックイベントを発生させます。</summary>
         public abstract Task MouseClickAsync();

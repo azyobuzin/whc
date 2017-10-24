@@ -9,8 +9,6 @@ namespace WagahighChoices.Toa
         public int Height { get; }
         public abstract ArraySegment<byte> Data { get; }
 
-        protected bool IsDisposed { get; private set; }
-
         protected Argb32Image(int width, int height)
         {
             if (width < 0) throw new ArgumentOutOfRangeException(nameof(width));
@@ -20,10 +18,7 @@ namespace WagahighChoices.Toa
             this.Height = height;
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            this.IsDisposed = true;
-        }
+        protected virtual void Dispose(bool disposing) { }
 
         public void Dispose()
         {
@@ -50,8 +45,7 @@ namespace WagahighChoices.Toa
 
         protected override void Dispose(bool disposing)
         {
-            if (!this.IsDisposed && disposing)
-                this._inner.Dispose();
+            if (disposing) this._inner.Dispose();
         }
     }
 
@@ -69,8 +63,7 @@ namespace WagahighChoices.Toa
 
         protected override void Dispose(bool disposing)
         {
-            if (!this.IsDisposed && disposing)
-                this._inner.Dispose();
+            if (disposing) this._inner.Dispose();
         }
     }
 }
