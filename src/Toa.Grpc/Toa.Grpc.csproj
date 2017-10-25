@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>WagahighChoices.Toa.Grpc</AssemblyName>
+    <RootNamespace>WagahighChoices.Toa.Grpc</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MagicOnion" Version="0.5.2" />
+    <PackageReference Include="MessagePackAnalyzer" Version="1.6.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Toa.Core\Toa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

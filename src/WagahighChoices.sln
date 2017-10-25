@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.16
+VisualStudioVersion = 15.0.27004.2005
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toa.Core", "Toa.Core\Toa.Core.csproj", "{454BC3F5-4BB8-4416-B4E2-B895C715D941}"
 EndProject
@@ -11,7 +11,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mihiro", "Mihiro\Mihiro.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blockhash", "Blockhash\Blockhash.csproj", "{36306247-AC8A-43E1-925E-D65D8F96886F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kaoruko", "Kaoruko\Kaoruko.csproj", "{F18FE6F0-3990-4599-9F54-5A398C1348B8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kaoruko", "Kaoruko\Kaoruko.csproj", "{F18FE6F0-3990-4599-9F54-5A398C1348B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Toa.Grpc", "Toa.Grpc\Toa.Grpc.csproj", "{80AAC534-7AE3-4D05-B341-F23A8C900E3A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{F18FE6F0-3990-4599-9F54-5A398C1348B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F18FE6F0-3990-4599-9F54-5A398C1348B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F18FE6F0-3990-4599-9F54-5A398C1348B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80AAC534-7AE3-4D05-B341-F23A8C900E3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80AAC534-7AE3-4D05-B341-F23A8C900E3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80AAC534-7AE3-4D05-B341-F23A8C900E3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80AAC534-7AE3-4D05-B341-F23A8C900E3A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
