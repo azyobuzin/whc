@@ -10,11 +10,15 @@ namespace WagahighChoices.Toa.Grpc.Internal
 
         public WagahighOperator WagahighOperator { get; }
 
-        public InjectWagahighOperatorFilterAttribute(WagahighOperator wagahighOperator, Func<ServiceContext, Task> next)
-            : base(next)
+        public InjectWagahighOperatorFilterAttribute(WagahighOperator wagahighOperator)
+            : base(null)
         {
             this.WagahighOperator = wagahighOperator;
         }
+
+        public InjectWagahighOperatorFilterAttribute(Func<ServiceContext, Task> next)
+            : base(next)
+        { }
 
         public override Task Invoke(ServiceContext context)
         {

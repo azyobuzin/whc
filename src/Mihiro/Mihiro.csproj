@@ -52,6 +52,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Rgb2432InputImage.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -102,11 +103,12 @@
       <Project>{454bc3f5-4bb8-4416-b4e2-b895c715d941}</Project>
       <Name>Toa</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Toa.Grpc\Toa.Grpc.csproj">
+      <Project>{80aac534-7ae3-4d05-b341-f23a8c900e3a}</Project>
+      <Name>Toa.Grpc</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp">
-      <Version>1.0.0-beta0001</Version>
-    </PackageReference>
     <PackageReference Include="System.Reactive.Linq">
       <Version>3.1.1</Version>
     </PackageReference>

@@ -21,7 +21,8 @@ namespace WagahighChoices.Toa.Grpc.Internal
                 offset += MessagePackBinary.WriteArrayHeader(ref bytes, offset, 3);
                 offset += MessagePackBinary.WriteInt32(ref bytes, offset, value.Width);
                 offset += MessagePackBinary.WriteInt32(ref bytes, offset, value.Height);
-                offset += MessagePackBinary.WriteBytes(ref bytes, offset, value.Data.Array, value.Data.Offset, value.Data.Count);
+                var data = value.Data;
+                offset += MessagePackBinary.WriteBytes(ref bytes, offset, data.Array, data.Offset, data.Count);
             }
             finally
             {

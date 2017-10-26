@@ -26,7 +26,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBox Grid.Column="0" Name="txtDisplay" Text="localhost:0.0" />
+            <TextBox Grid.Column="0" Name="txtRemoteAddr" Text="localhost:51203" />
             <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True" Click="btnConnect_Click">接続</Button>
         </Grid>
 

@@ -16,6 +16,8 @@ namespace WagahighChoices.Toa.Grpc
             this._service = MagicOnionClient.Create<IToaMagicOnionService>(this._channel, ToaFormatterResolver.Instance);
         }
 
+        public Task ConnectAsync() => this._channel.ConnectAsync();
+
         public override Task<Argb32Image> CaptureContentAsync() => this._service.CaptureContent().ResponseAsync;
 
         public override Task SetCursorPositionAsync(short x, short y) => this._service.SetCursorPosition(x, y).ResponseAsync;

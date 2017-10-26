@@ -4,7 +4,6 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,10 +11,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
-using WagahighChoices.Toa.X11;
+using WagahighChoices.Toa.Grpc;
 
 namespace WagahighChoices.Mihiro
 {
@@ -32,8 +29,8 @@ namespace WagahighChoices.Mihiro
         private WagahighOperator _connection;
         private DispatcherTimer _timer;
         private readonly Subject<Unit> _updateCursorImageSubject = new Subject<Unit>();
-        private Image<Rgb2432> _screenImage;
-        private Image<Argb32> _cursorImage;
+        private Argb32Image _screenImage;
+        private Argb32Image _cursorImage;
 
         public MainWindowBindingModel BindingModel => (MainWindowBindingModel)this.DataContext;
 
@@ -65,15 +62,25 @@ namespace WagahighChoices.Mihiro
                 this._connection = null;
             }
 
-            DisplayIdentifier displayIdentifier;
+            var host = this.txtRemoteAddr.Text;
+            int port;
 
             try
             {
-                displayIdentifier = DisplayIdentifier.Parse(this.txtDisplay.Text);
+                var colonIndex = host.LastIndexOf(':');
+                if (colonIndex >= 0)
+                {
+                    port = int.Parse(host.Substring(colonIndex + 1));
+                    host = host.Remove(colonIndex);
+                }
+                else
+                {
+                    port = GrpcToaServer.DefaultPort;
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "ディスプレイ名エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, ex.Message, "接続先エラー", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -81,7 +88,9 @@ namespace WagahighChoices.Mihiro
 
             try
             {
-                this._connection = await LocalWagahighOperator.ConnectAsync(displayIdentifier);
+                var conn = new GrpcRemoteWagahighOperator(host, port);
+                this._connection = conn;
+                await conn.ConnectAsync();
             }
             catch (Exception ex)
             {
@@ -139,7 +148,7 @@ namespace WagahighChoices.Mihiro
             source.Lock();
             try
             {
-                CopyPixels(img.Frames.RootFrame, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
+                CopyPixels(img, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
                 source.AddDirtyRect(new Int32Rect(0, 0, source.PixelWidth, source.PixelHeight));
             }
             finally
@@ -154,21 +163,9 @@ namespace WagahighChoices.Mihiro
                 this.imgScreen.Source = source;
         }
 
-        // 遅い、キレそう
-        private static unsafe void CopyPixels<TPixel>(ImageFrame<TPixel> frame, IntPtr dest, int destLength)
-            where TPixel : struct, IPixel<TPixel>
+        private static unsafe void CopyPixels(Argb32Image image, IntPtr dest, int destLength)
         {
-            var buf = new Span<TPixel>((void*)dest, destLength / Unsafe.SizeOf<TPixel>());
-
-            for (var y = 0; y < frame.Height; y++)
-            {
-                var baseIndex = frame.Width * y;
-
-                for (var x = 0; x < frame.Width; x++)
-                {
-                    buf[baseIndex + x] = frame[x, y];
-                }
-            }
+            ((Span<byte>)image.Data).CopyTo(new Span<byte>((void*)dest, destLength));
         }
 
         private void imgScreen_MouseDown(object sender, MouseButtonEventArgs e)
@@ -210,7 +207,7 @@ namespace WagahighChoices.Mihiro
             {
                 try
                 {
-                    await this._connection.SetCursorPositionAsync((int)pos.X, (int)pos.Y).ConfigureAwait(false);
+                    await this._connection.SetCursorPositionAsync(checked((short)pos.X), checked((short)pos.Y)).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -266,7 +263,7 @@ namespace WagahighChoices.Mihiro
 
                 try
                 {
-                    CopyPixels(img.Frames.RootFrame, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
+                    CopyPixels(img, source.BackBuffer, source.BackBufferStride * source.PixelHeight);
                     source.AddDirtyRect(new Int32Rect(0, 0, source.PixelWidth, source.PixelHeight));
                 }
                 finally
@@ -319,8 +316,10 @@ namespace WagahighChoices.Mihiro
             const int hashLength = 32; // bits * bits / 8
             const string table = "0123456789abcdef";
 
+            if (this._screenImage == null) return;
+
             var hash = new byte[hashLength];
-            Blockhash.ComputeHash(this._screenImage.Frames.RootFrame, hash);
+            Blockhash.ComputeHash(new Rgb2432InputImage(this._screenImage), hash);
 
             var s = new string('\0', hashLength * 2);
             unsafe
