@@ -66,6 +66,7 @@
             <StackPanel Grid.Column="1" Orientation="Vertical">
                 <Button Name="btnHash" Click="btnHash_Click">画像ハッシュ</Button>
                 <Button Name="btnSaveCursor">カーソル保存</Button>
+                <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大</CheckBox>
             </StackPanel>
 
             <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">

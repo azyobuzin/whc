@@ -31,6 +31,7 @@ namespace WagahighChoices.Mihiro
         private readonly Subject<Unit> _updateCursorImageSubject = new Subject<Unit>();
         private Argb32Image _screenImage;
         private Argb32Image _cursorImage;
+        private bool _expansionEnabled;
 
         public MainWindowBindingModel BindingModel => (MainWindowBindingModel)this.DataContext;
 
@@ -223,13 +224,13 @@ namespace WagahighChoices.Mihiro
             var imgWidth = imgSource.Width;
             var imgHeight = imgSource.Height;
 
-            var scale = Math.Max(
-                1.0,
-                Math.Min(
-                    imgWidth / uiSize.Width,
-                    imgHeight / uiSize.Height
-                )
+            var scale = Math.Min(
+                imgWidth / uiSize.Width,
+                imgHeight / uiSize.Height
             );
+
+            if (!this._expansionEnabled && scale > 1.0)
+                scale = 1.0;
 
             var uiCenterX = uiSize.Width / 2.0;
             var diffFromCenterX = point.X - uiCenterX;
@@ -336,6 +337,18 @@ namespace WagahighChoices.Mihiro
 
             Clipboard.SetText(s);
             MessageBox.Show(this, s, "画像ハッシュ");
+        }
+
+        private void chkExpansion_Checked(object sender, RoutedEventArgs e)
+        {
+            this.imgScreen.StretchDirection = StretchDirection.Both;
+            this._expansionEnabled = true;
+        }
+
+        private void chkExpansion_Unchecked(object sender, RoutedEventArgs e)
+        {
+            this.imgScreen.StretchDirection = StretchDirection.DownOnly;
+            this._expansionEnabled = false;
         }
     }
 }
