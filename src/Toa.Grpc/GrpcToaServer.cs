@@ -23,7 +23,8 @@ namespace WagahighChoices.Toa.Grpc
                     GlobalFilters = new MagicOnionFilterAttribute[]
                     {
                         new InjectWagahighOperatorFilterAttribute(wagahighOperator)
-                    }
+                    },
+                    //MagicOnionLogger = new MagicOnionLogToGrpcLogger()
                 }
             );
 

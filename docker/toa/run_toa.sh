@@ -1,3 +1,10 @@
 #!/bin/bash
 
-xvfb-run -as '-screen 0 640x394x24' wine 'C:\toa.exe' -d 'C:\wagahigh'
+Xvfb :0 -screen 0 640x394x24 -listen tcp -ac &
+sleep 0.5
+
+export DISPLAY=:0
+wine start 'C:\wagahigh\ワガママハイスペック.exe'
+
+sleep 5
+dotnet /app/toa/toa.dll

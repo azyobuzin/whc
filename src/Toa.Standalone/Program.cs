@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading;
+using Grpc.Core;
+using Grpc.Core.Logging;
 using Microsoft.Extensions.CommandLineUtils;
 using WagahighChoices.Toa.Grpc;
 using WagahighChoices.Toa.X11;
@@ -50,9 +52,12 @@ namespace WagahighChoices.Toa.Standalone
                     }
                 };
 
+                GrpcEnvironment.SetLogger(new ConsoleLogger());
+
                 // サーバー開始
+                // 0.0.0.0 を指定: https://github.com/grpc/grpc/issues/10570
                 using (var wagahighOperator = LocalWagahighOperator.ConnectAsync(display).Result)
-                using (var server = new GrpcToaServer("localhost", port, wagahighOperator))
+                using (var server = new GrpcToaServer("0.0.0.0", port, wagahighOperator))
                 {
                     server.Start();
                     Log.WriteMessage("Listening " + port);

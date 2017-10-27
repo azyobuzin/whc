@@ -28,9 +28,9 @@ ENV LANG="ja_JP.UTF-8" \
     W_OPT_UNATTENDED=1
 
 # パッケージリポジトリの winetricks は古いので直接ダウンロード
-RUN wget -O - https://github.com/Winetricks/winetricks/archive/20170823.tar.gz | tar -xzf - && \
-    make -C winetricks-20170823 install && \
-    rm -rf winetricks-20170823
+RUN wget -O - https://github.com/Winetricks/winetricks/archive/20171018.tar.gz | tar -xzf - && \
+    make -C winetricks-20171018 install && \
+    rm -rf winetricks-20171018
 
 WORKDIR /home/wagahigh
 
