@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using WagahighChoices.Toa;
 
 // TODO: Ashe のほうに移動させる
@@ -7,6 +8,7 @@ namespace WagahighChoices.Mihiro
     /// <summary>
     /// <see cref="Argb32Image"/> の <see cref="Pixel.A"/> を無視してピクセル情報を公開します。
     /// </summary>
+    [StructLayout(LayoutKind.Auto)]
     internal struct Rgb2432InputImage : IInputImage
     {
         private readonly Argb32Image _image;
