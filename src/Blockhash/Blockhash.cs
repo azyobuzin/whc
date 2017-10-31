@@ -52,16 +52,16 @@ namespace WagahighChoices
             for (; count - i >= 8; i += 8)
             {
                 distance += popcount64c(
-                    Unsafe.As<byte, ulong>(ref bs1.Array[bs1.Offset + i])
-                    ^ Unsafe.As<byte, ulong>(ref bs2.Array[bs2.Offset + i])
+                    Unsafe.ReadUnaligned<ulong>(ref bs1.Array[bs1.Offset + i])
+                    ^ Unsafe.ReadUnaligned<ulong>(ref bs2.Array[bs2.Offset + i])
                 );
             }
 
             for (; count - i >= 4; i += 4)
             {
                 distance += popcount32(
-                   Unsafe.As<byte, uint>(ref bs1.Array[bs1.Offset + i])
-                   ^ Unsafe.As<byte, uint>(ref bs2.Array[bs2.Offset + i])
+                   Unsafe.ReadUnaligned<uint>(ref bs1.Array[bs1.Offset + i])
+                   ^ Unsafe.ReadUnaligned<uint>(ref bs2.Array[bs2.Offset + i])
                 );
             }
 

@@ -31,6 +31,6 @@ namespace WagahighChoices.Toa
         /// <summary>現在のカーソルを取得します。</summary>
         public abstract Task<Argb32Image> GetCursorImageAsync();
 
-        // TODO: ログイベント
+        public abstract IObservable<string> LogStream { get; }
     }
 }
