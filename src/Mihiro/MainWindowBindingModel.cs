@@ -1,4 +1,6 @@
-﻿namespace WagahighChoices.Mihiro
+﻿using System.Collections.ObjectModel;
+
+namespace WagahighChoices.Mihiro
 {
     public class MainWindowBindingModel : BindingModelBase
     {
@@ -43,5 +45,7 @@
             get => this._cursorRatioY;
             set => this.SetToBackingField(ref this._cursorRatioY, value);
         }
+
+        public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>();
     }
 }

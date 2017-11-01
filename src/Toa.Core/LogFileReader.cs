@@ -12,6 +12,7 @@ namespace WagahighChoices.Toa
         private char[] _charBuffer = new char[128];
         private int _charBufIndex;
         private bool _needToCheckBuffer; // 読み込む前にバッファーに改行が含まれていないかチェックするべきかどうか
+        private long _lastFileLength;
 
         public LogFileReader(string path)
         {
@@ -39,6 +40,10 @@ namespace WagahighChoices.Toa
 
                 this._needToCheckBuffer = false;
             }
+
+            var newLength = this._stream.Length; // FileStream.Length はメソッドにするべきでは？
+            if (newLength <= this._lastFileLength) return null;
+            this._lastFileLength = newLength;
 
             while (true)
             {

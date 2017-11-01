@@ -5,73 +5,93 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WagahighChoices.Mihiro"
         mc:Ignorable="d"
-        Title="Mihiro" Height="510" Width="680" Loaded="Window_Loaded">
+        Title="Mihiro" Height="510" Width="950" Loaded="Window_Loaded">
     <Window.DataContext>
         <local:MainWindowBindingModel />
     </Window.DataContext>
 
-    <Grid Margin="6">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="6" />
-            <RowDefinition />
-            <RowDefinition Height="6" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="2*" />
+        </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0" Margin="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <TextBox Grid.Column="0" Name="txtRemoteAddr" Text="localhost:51203" />
-            <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True" Click="btnConnect_Click">接続</Button>
-        </Grid>
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="2" Background="Black">
-            <Image Name="imgScreen" StretchDirection="DownOnly" MouseDown="imgScreen_MouseDown" MouseMove="imgScreen_MouseMove" TouchDown="imgScreen_TouchDownOrMove" TouchMove="imgScreen_TouchDownOrMove" MouseUp="imgScreen_MouseUp" TouchUp="imgScreen_TouchUp" />
-        </Grid>
-
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition Width="150" />
-                <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Orientation="Vertical">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="ゲーム領域サイズ: " />
-                    <TextBlock Text="{Binding GameWidth}" MouseDown="ValueTextBlock_MouseDown" />
-                    <TextBlock Text=" x " />
-                    <TextBlock Text="{Binding GameHeight}" MouseDown="ValueTextBlock_MouseDown" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="カーソル位置1: " />
-                    <TextBlock Text="{Binding CursorX}" MouseDown="ValueTextBlock_MouseDown" />
-                    <TextBlock Text=" , " />
-                    <TextBlock Text="{Binding CursorY}" MouseDown="ValueTextBlock_MouseDown" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="カーソル位置2: " />
-                    <TextBlock Text="{Binding CursorRatioX}" MouseDown="ValueTextBlock_MouseDown" />
-                    <TextBlock Text=" , " />
-                    <TextBlock Text="{Binding CursorRatioY}" MouseDown="ValueTextBlock_MouseDown" />
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Vertical">
-                <Button Name="btnHash" Click="btnHash_Click">画像ハッシュ</Button>
-                <Button Name="btnSaveCursor">カーソル保存</Button>
-                <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大</CheckBox>
-            </StackPanel>
-
-            <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">
-                <Image Name="imgCursor" StretchDirection="DownOnly" />
+                <TextBox Grid.Column="0" Name="txtRemoteAddr" Text="localhost:51203" />
+                <Button Grid.Column="2" Name="btnConnect" Width="50" IsDefault="True" Click="btnConnect_Click">接続</Button>
             </Grid>
+
+            <Grid Grid.Row="2" Background="Black">
+                <Image Name="imgScreen" StretchDirection="DownOnly" MouseDown="imgScreen_MouseDown" MouseMove="imgScreen_MouseMove" TouchDown="imgScreen_TouchDownOrMove" TouchMove="imgScreen_TouchDownOrMove" MouseUp="imgScreen_MouseUp" TouchUp="imgScreen_TouchUp" />
+            </Grid>
+
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="ゲーム領域サイズ: " />
+                        <TextBlock Text="{Binding GameWidth}" MouseDown="ValueTextBlock_MouseDown" />
+                        <TextBlock Text=" x " />
+                        <TextBlock Text="{Binding GameHeight}" MouseDown="ValueTextBlock_MouseDown" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="カーソル位置1: " />
+                        <TextBlock Text="{Binding CursorX}" MouseDown="ValueTextBlock_MouseDown" />
+                        <TextBlock Text=" , " />
+                        <TextBlock Text="{Binding CursorY}" MouseDown="ValueTextBlock_MouseDown" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="カーソル位置2: " />
+                        <TextBlock Text="{Binding CursorRatioX}" MouseDown="ValueTextBlock_MouseDown" />
+                        <TextBlock Text=" , " />
+                        <TextBlock Text="{Binding CursorRatioY}" MouseDown="ValueTextBlock_MouseDown" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Vertical">
+                    <Button Name="btnHash" Click="btnHash_Click">画像ハッシュ</Button>
+                    <Button Name="btnSaveCursor">カーソル保存</Button>
+                    <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大</CheckBox>
+                </StackPanel>
+
+                <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">
+                    <Image Name="imgCursor" StretchDirection="DownOnly" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Width="5" />
+
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="ログ" Margin="6" />
+            <ListView Grid.Row="1" Name="lstLog" ItemsSource="{Binding Logs}" />
         </Grid>
     </Grid>
 </Window>

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -31,7 +33,7 @@ namespace WagahighChoices.Mihiro
         private readonly Subject<Unit> _updateCursorImageSubject = new Subject<Unit>();
         private Argb32Image _screenImage;
         private Argb32Image _cursorImage;
-        private bool _expansionEnabled;
+        private IDisposable _logSubscription;
 
         public MainWindowBindingModel BindingModel => (MainWindowBindingModel)this.DataContext;
 
@@ -40,7 +42,7 @@ namespace WagahighChoices.Mihiro
             this._updateCursorImageSubject
                 .Buffer(new TimeSpan(100 * TimeSpan.TicksPerMillisecond))
                 .Where(x => x.Count > 0)
-                .ObserveOnDispatcher()
+                .ObserveOn(this.Dispatcher)
                 .SelectMany(_ => this.UpdateCursorImage().ToObservable())
                 .Subscribe();
         }
@@ -57,6 +59,12 @@ namespace WagahighChoices.Mihiro
 
         private async void btnConnect_Click(object sender, RoutedEventArgs e)
         {
+            if (this._logSubscription != null)
+            {
+                this._logSubscription.Dispose();
+                this._logSubscription = null;
+            }
+
             if (this._connection != null)
             {
                 this._connection.Dispose();
@@ -92,6 +100,18 @@ namespace WagahighChoices.Mihiro
                 var conn = new GrpcRemoteWagahighOperator(host, port);
                 this._connection = conn;
                 await conn.ConnectAsync();
+
+                this._logSubscription = conn.LogStream
+                    .ObserveOn(this.Dispatcher)
+                    .Subscribe(
+                        this.OnNextLog,
+                        ex =>
+                        {
+                            if (Debugger.IsAttached) Debugger.Break();
+                            MessageBox.Show(this, ex.ToString(), "ログエラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                        },
+                        () => MessageBox.Show(this, "ログストリームが終了しました。", "ログエラー", MessageBoxButton.OK, MessageBoxImage.Error)
+                    );
             }
             catch (Exception ex)
             {
@@ -169,6 +189,33 @@ namespace WagahighChoices.Mihiro
             ((Span<byte>)image.Data).CopyTo(new Span<byte>((void*)dest, destLength));
         }
 
+        private static IEnumerable<DependencyObject> TraverseVisualTreeBreadthFirst(DependencyObject x)
+        {
+            var queue = new Queue<DependencyObject>();
+            queue.Enqueue(x);
+
+            while (queue.Count > 0)
+            {
+                x = queue.Dequeue();
+                yield return x;
+
+                var childrenCount = VisualTreeHelper.GetChildrenCount(x);
+                for (var i = 0; i < childrenCount; i++)
+                    queue.Enqueue(VisualTreeHelper.GetChild(x, i));
+            }
+        }
+
+        private void OnNextLog(string log)
+        {
+            var scrollViewer = TraverseVisualTreeBreadthFirst(this.lstLog)
+                .OfType<ScrollViewer>().First();
+            var isBottommost = scrollViewer.VerticalOffset - (scrollViewer.ExtentHeight - scrollViewer.ViewportHeight) >= -double.Epsilon;
+
+            this.BindingModel.Logs.Add(log);
+
+            if (isBottommost) scrollViewer.ScrollToBottom();
+        }
+
         private void imgScreen_MouseDown(object sender, MouseButtonEventArgs e)
         {
             this.UpdateCursorPosition(e.GetPosition(this.imgScreen));
@@ -228,9 +275,6 @@ namespace WagahighChoices.Mihiro
                 imgWidth / uiSize.Width,
                 imgHeight / uiSize.Height
             );
-
-            if (!this._expansionEnabled && scale > 1.0)
-                scale = 1.0;
 
             var uiCenterX = uiSize.Width / 2.0;
             var diffFromCenterX = point.X - uiCenterX;
@@ -342,13 +386,11 @@ namespace WagahighChoices.Mihiro
         private void chkExpansion_Checked(object sender, RoutedEventArgs e)
         {
             this.imgScreen.StretchDirection = StretchDirection.Both;
-            this._expansionEnabled = true;
         }
 
         private void chkExpansion_Unchecked(object sender, RoutedEventArgs e)
         {
             this.imgScreen.StretchDirection = StretchDirection.DownOnly;
-            this._expansionEnabled = false;
         }
     }
 }

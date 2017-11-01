@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using WagahighChoices.Toa.X11;
@@ -40,34 +39,75 @@ namespace WagahighChoices.Toa
 
         private void StartProcess(string directory)
         {
-            this._process = Process.Start("wine", "\"" + Path.Combine(directory, "ワガママハイスペック.exe") + "\" -forcelog=clear");
+            const string exeName = "ワガママハイスペック.exe";
+            this._process = Process.Start("wine", "\"" + JoinPathInWindows(directory, exeName) + "\" -forcelog=clear");
+
+            var logFilePath = Path.Combine(ToUnixPath(directory), "savedata", "krkr.console.log");
+
+            // プロセス開始から 5 秒間はログファイルにアクセスさせない
+            var allowedToAccessAt = DateTime.UtcNow.AddTicks(5 * TimeSpan.TicksPerSecond);
 
             var logObservable =
-                Observable.Defer(() =>
+                Observable.Create<string>(async (observer, cancellationToken) =>
                 {
-                    var reader = new LogFileReader(Path.Combine(directory, "savedata", "krkr.console.log"));
-                    try
+                    var now = DateTime.UtcNow;
+                    if (now < allowedToAccessAt)
+                        await Task.Delay(allowedToAccessAt - now, cancellationToken).ConfigureAwait(false);
+
+                    using (var reader = new LogFileReader(logFilePath))
                     {
                         reader.SeekToLastLine();
-                    }
-                    catch
-                    {
-                        reader.Dispose();
-                        throw;
-                    }
 
-                    return Observable.Interval(new TimeSpan(500 * TimeSpan.TicksPerMillisecond))
-                        .Select(__ => reader.Read())
-                        .Where(x => x != null)
-                        .Finally(reader.Dispose);
+                        while (true)
+                        {
+                            while (reader.Read() is string log)
+                                observer.OnNext(log);
+
+                            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
                 })
-                .DelaySubscription(Scheduler.Now.AddTicks(5 * TimeSpan.TicksPerSecond))
                 .Merge(
-                    Observable.FromEventPattern(x => this._process.Exited += x, x => this._process.Exited -= x)
-                        .SelectMany(_ => s_processExitedObservable)
+                    Observable.FromEventPattern(
+                        x => this._process.Exited += x,
+                        x => { if (this._process != null) this._process.Exited -= x; }
+                    )
+                    .SelectMany(_ => s_processExitedObservable)
                 );
 
             this._logStream = Observable.Create<string>(observer => (this._process.HasExited ? s_processExitedObservable : logObservable).Subscribe(observer));
+        }
+
+        private static string JoinPathInWindows(string path1, string path2)
+        {
+            return string.IsNullOrEmpty(path1) ? path2
+                : path1[path1.Length - 1] is var lastChar && (lastChar == '\\' || lastChar == '/') ? path1 + path2
+                : path1 + "\\" + path2;
+        }
+
+        private static bool IsAbsolutePathInWindows(string path)
+        {
+            if (path.Length < 2 || path[1] != ':') return false;
+            var driveLetter = path[0];
+            if (!((driveLetter >= 'A' && driveLetter <= 'Z') || (driveLetter >= 'a' && driveLetter <= 'z'))) return false;
+            return path.Length == 2 || path[2] == '\\' || path[2] == '/';
+        }
+
+        private static string ToUnixPath(string pathInWindows)
+        {
+            if (string.IsNullOrEmpty(pathInWindows)) return "";
+            if (!IsAbsolutePathInWindows(pathInWindows)) return pathInWindows.Replace('\\', '/');
+
+            var winePrefix = Environment.GetEnvironmentVariable("WINEPREFIX");
+            if (string.IsNullOrEmpty(winePrefix))
+                winePrefix = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".wine");
+
+            var driveLetter = char.ToLowerInvariant(pathInWindows[0]);
+            var driveRoot = Path.Combine(winePrefix, "dosdevices", driveLetter + ":");
+
+            return pathInWindows.Length >= 4
+                ? Path.Combine(driveRoot, pathInWindows.Substring(3).Replace('\\', '/'))
+                : driveRoot;
         }
 
         private async Task Connect(DisplayIdentifier displayIdentifier)
@@ -81,20 +121,19 @@ namespace WagahighChoices.Toa
             {
                 await Task.Delay(1000).ConfigureAwait(false);
 
-                try
-                {
-                    var wagahighWindow = await FindWagahighWindow(this._x11Client, s.Root).ConfigureAwait(false);
-                    await this._x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
+                var wagahighWindow = await FindWagahighWindow(this._x11Client, s.Root).ConfigureAwait(false);
+                if (!wagahighWindow.HasValue) continue;
 
-                    this._contentWindow = await FindContentWindow(this._x11Client, wagahighWindow).ConfigureAwait(false);
+                var contentWindow = await FindContentWindow(this._x11Client, wagahighWindow.Value).ConfigureAwait(false);
+                if (!contentWindow.HasValue) continue;
 
-                    return;
-                }
-                catch { }
+                this._contentWindow = contentWindow.Value;
+                await this._x11Client.ConfigureWindowAsync(wagahighWindow.Value, x: 0, y: 0).ConfigureAwait(false);
+                return;
             }
         }
 
-        private static async Task<uint> FindWagahighWindow(X11Client x11Client, uint root)
+        private static async Task<uint?> FindWagahighWindow(X11Client x11Client, uint root)
         {
             var windowNameAtom = await x11Client.InternAtomAsync("_NET_WM_NAME", false).ConfigureAwait(false);
 
@@ -104,15 +143,15 @@ namespace WagahighChoices.Toa
                 if (netWmName == "ワガママハイスペック") return child;
             }
 
-            throw new Exception("ウィンドウが見つかりませんでした。");
+            return null;
         }
 
-        private static async Task<uint> FindContentWindow(X11Client x11Client, uint wagahighWindow)
+        private static async Task<uint?> FindContentWindow(X11Client x11Client, uint wagahighWindow)
         {
             var children = (await x11Client.QueryTreeAsync(wagahighWindow).ConfigureAwait(false)).Children;
             var count = children.Count;
 
-            if (count == 0) throw new Exception("子ウィンドウがありません。");
+            if (count == 0) return null;
 
             var maxArea = 0;
             var maxIndex = 0;

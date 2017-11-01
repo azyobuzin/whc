@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Grpc.Core;
 using MagicOnion.Client;
@@ -20,10 +18,24 @@ namespace WagahighChoices.Toa.Grpc
             this._channel = new Channel(host, port, ChannelCredentials.Insecure);
             this._service = MagicOnionClient.Create<IToaMagicOnionService>(this._channel, ToaFormatterResolver.Instance);
 
-            this.LogStream = Observable.Defer(() => this._service.LogStream().ToObservable())
-                .SelectMany(x => ((IAsyncEnumerable<string>)x.ResponseStream)
-                    .ToObservable().Finally(() => x.Dispose())
-                );
+            this.LogStream = Observable.Create<string>(async (observer, cancellationToken) =>
+            {
+                using (var result = await this._service.LogStream().ConfigureAwait(false))
+                using (cancellationToken.Register(result.Dispose))
+                {
+                    var stream = result.ResponseStream;
+
+                    // MoveNext に CancellationToken を指定するのは対応していない
+                    while (true)
+                    {
+                        if (cancellationToken.IsCancellationRequested) return;
+                        if (!await stream.MoveNext().ConfigureAwait(false)) break;
+                        observer.OnNext(stream.Current);
+                    }
+                }
+
+                observer.OnCompleted();
+            });
         }
 
         public Task ConnectAsync() => this._channel.ConnectAsync();
