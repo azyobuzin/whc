@@ -10,6 +10,5 @@ RUN wget -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
 USER wagahigh
 
 COPY bin /app/toa
-COPY run_toa.sh /
 
-CMD /run_toa.sh
+CMD xvfb-run -als '-screen 0 640x394x24 -listen tcp -ac' dotnet /app/toa/toa.dll -d 'C:\wagahigh'

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -28,7 +27,6 @@ namespace WagahighChoices.Toa
             try
             {
                 instance.StartProcess(directory);
-                await Task.Delay(5000).ConfigureAwait(false);
                 await instance.Connect(displayIdentifier).ConfigureAwait(false);
             }
             catch
@@ -79,10 +77,21 @@ namespace WagahighChoices.Toa
             var s = this._x11Client.Screens[displayIdentifier.Screen];
             this._screenRootWindow = s.Root;
 
-            var wagahighWindow = await FindWagahighWindow(this._x11Client, s.Root).ConfigureAwait(false);
-            await this._x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
+            while (true) // ウィンドウが見つかるまでループ
+            {
+                await Task.Delay(1000).ConfigureAwait(false);
 
-            this._contentWindow = await FindContentWindow(this._x11Client, wagahighWindow).ConfigureAwait(false);
+                try
+                {
+                    var wagahighWindow = await FindWagahighWindow(this._x11Client, s.Root).ConfigureAwait(false);
+                    await this._x11Client.ConfigureWindowAsync(wagahighWindow, x: 0, y: 0).ConfigureAwait(false);
+
+                    this._contentWindow = await FindContentWindow(this._x11Client, wagahighWindow).ConfigureAwait(false);
+
+                    return;
+                }
+                catch { }
+            }
         }
 
         private static async Task<uint> FindWagahighWindow(X11Client x11Client, uint root)
