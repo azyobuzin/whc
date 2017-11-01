@@ -21,7 +21,6 @@ namespace WagahighChoices.Toa.Standalone
 
             app.HelpOption("-?|-h|--help");
 
-            // あとで使う
             var directoryOption = app.Option(
                 "-d|--directory <dir>",
                 "ワガママハイスペック.exe が存在するディレクトリ",
@@ -36,6 +35,7 @@ namespace WagahighChoices.Toa.Standalone
 
             app.OnExecute(() =>
             {
+                var directory = directoryOption.Value() ?? "";
                 var port = portOption.HasValue() ? int.Parse(portOption.Value()) : GrpcToaServer.DefaultPort;
                 var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
 
@@ -56,7 +56,7 @@ namespace WagahighChoices.Toa.Standalone
 
                 // サーバー開始
                 // 0.0.0.0 を指定: https://github.com/grpc/grpc/issues/10570
-                using (var wagahighOperator = LocalWagahighOperator.ConnectAsync(display).Result)
+                using (var wagahighOperator = LocalWagahighOperator.StartProcessAsync(directory, display).Result)
                 using (var server = new GrpcToaServer("0.0.0.0", port, wagahighOperator))
                 {
                     server.Start();

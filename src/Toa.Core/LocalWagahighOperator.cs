@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reactive.Disposables;
+using System.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using WagahighChoices.Toa.X11;
@@ -47,16 +48,22 @@ namespace WagahighChoices.Toa
                 Observable.Defer(() =>
                 {
                     var reader = new LogFileReader(Path.Combine(directory, "savedata", "krkr.console.log"));
-                    reader.SeekToLastLine();
-                    return Observable.Return(reader);
-                })
-                .SelectMany(reader =>
-                    Observable.Interval(new TimeSpan(500 * TimeSpan.TicksPerMillisecond))
-                        .Select(_ => reader.Read())
+                    try
+                    {
+                        reader.SeekToLastLine();
+                    }
+                    catch
+                    {
+                        reader.Dispose();
+                        throw;
+                    }
+
+                    return Observable.Interval(new TimeSpan(500 * TimeSpan.TicksPerMillisecond))
+                        .Select(__ => reader.Read())
                         .Where(x => x != null)
-                        .Finally(reader.Dispose)
-                )
-                .DelaySubscription(DateTimeOffset.Now.AddTicks(5 * TimeSpan.TicksPerSecond))
+                        .Finally(reader.Dispose);
+                })
+                .DelaySubscription(Scheduler.Now.AddTicks(5 * TimeSpan.TicksPerSecond))
                 .Merge(
                     Observable.FromEventPattern(x => this._process.Exited += x, x => this._process.Exited -= x)
                         .SelectMany(_ => s_processExitedObservable)

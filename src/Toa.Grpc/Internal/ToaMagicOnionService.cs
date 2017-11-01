@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 using MagicOnion;
 using MagicOnion.Server;
 using MessagePack;
@@ -30,6 +32,23 @@ namespace WagahighChoices.Toa.Grpc.Internal
         public UnaryResult<Argb32Image> GetCursorImage()
         {
             return new UnaryResult<Argb32Image>(this.WagahighOperator.GetCursorImageAsync());
+        }
+
+        public async Task<ServerStreamingResult<string>> LogStream()
+        {
+            var context = this.GetServerStreamingContext<string>();
+            var cancellationToken = this.Context.CallContext.CancellationToken;
+
+            using (var enumerator = this.WagahighOperator.LogStream.ToAsyncEnumerable().GetEnumerator())
+            {
+                // 1件ずつ取り出して、スレッドセーフにやっていく
+                while (await enumerator.MoveNext(cancellationToken).ConfigureAwait(false))
+                {
+                    await context.WriteAsync(enumerator.Current).ConfigureAwait(false);
+                }
+            }
+
+            return context.Result();
         }
     }
 }

@@ -17,7 +17,7 @@ namespace WagahighChoices.Toa.Grpc
         {
             var service = MagicOnionEngine.BuildServerServiceDefinition(
                 new[] { typeof(ToaMagicOnionService) },
-                new MagicOnionOptions()
+                new MagicOnionOptions(true)
                 {
                     FormatterResolver = ToaFormatterResolver.Instance,
                     GlobalFilters = new MagicOnionFilterAttribute[]
