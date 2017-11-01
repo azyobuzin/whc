@@ -10,6 +10,10 @@
         <local:MainWindowBindingModel />
     </Window.DataContext>
 
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static local:MainWindow.CopyLogCommand}" CanExecute="CommandBinding_CanExecute" Executed="CommandBinding_Executed" />
+    </Window.CommandBindings>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="5*" />
@@ -91,7 +95,16 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="ログ" Margin="6" />
-            <ListView Grid.Row="1" Name="lstLog" ItemsSource="{Binding Logs}" />
+            <ListView Grid.Row="1" Name="lstLog" ItemsSource="{Binding Logs}">
+                <ListView.InputBindings>
+                    <KeyBinding Modifiers="Ctrl" Key="C" Command="{x:Static local:MainWindow.CopyLogCommand}" />
+                </ListView.InputBindings>
+                <ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="コピー" InputGestureText="Ctrl+C" Command="{x:Static local:MainWindow.CopyLogCommand}" />
+                    </ContextMenu>
+                </ListView.ContextMenu>
+            </ListView>
         </Grid>
     </Grid>
 </Window>

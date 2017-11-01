@@ -28,12 +28,15 @@ namespace WagahighChoices.Mihiro
             InitializeComponent();
         }
 
+        public static readonly RoutedCommand CopyLogCommand = new RoutedCommand();
+
         private WagahighOperator _connection;
         private DispatcherTimer _timer;
         private readonly Subject<Unit> _updateCursorImageSubject = new Subject<Unit>();
         private Argb32Image _screenImage;
         private Argb32Image _cursorImage;
         private IDisposable _logSubscription;
+        private ScrollViewer _logScrollViewer;
 
         public MainWindowBindingModel BindingModel => (MainWindowBindingModel)this.DataContext;
 
@@ -207,8 +210,13 @@ namespace WagahighChoices.Mihiro
 
         private void OnNextLog(string log)
         {
-            var scrollViewer = TraverseVisualTreeBreadthFirst(this.lstLog)
-                .OfType<ScrollViewer>().First();
+            if (this._logScrollViewer == null)
+            {
+                this._logScrollViewer = TraverseVisualTreeBreadthFirst(this.lstLog)
+                    .OfType<ScrollViewer>().First();
+            }
+
+            var scrollViewer = this._logScrollViewer;
             var isBottommost = scrollViewer.VerticalOffset - (scrollViewer.ExtentHeight - scrollViewer.ViewportHeight) >= -double.Epsilon;
 
             this.BindingModel.Logs.Add(log);
@@ -391,6 +399,16 @@ namespace WagahighChoices.Mihiro
         private void chkExpansion_Unchecked(object sender, RoutedEventArgs e)
         {
             this.imgScreen.StretchDirection = StretchDirection.DownOnly;
+        }
+
+        private void CommandBinding_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = this.lstLog.SelectedIndex >= 0;
+        }
+
+        private void CommandBinding_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            Clipboard.SetText((string)this.lstLog.SelectedItem);
         }
     }
 }
