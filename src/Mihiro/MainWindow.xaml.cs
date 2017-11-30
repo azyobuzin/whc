@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -13,6 +14,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using WagahighChoices.Toa;
 using WagahighChoices.Toa.Grpc;
 
@@ -29,6 +31,8 @@ namespace WagahighChoices.Mihiro
         }
 
         public static readonly RoutedCommand CopyLogCommand = new RoutedCommand();
+        public static readonly RoutedCommand ShowHashCommand = new RoutedCommand();
+        public static readonly RoutedCommand SaveCursorCommand = new RoutedCommand();
 
         private WagahighOperator _connection;
         private DispatcherTimer _timer;
@@ -257,8 +261,6 @@ namespace WagahighChoices.Mihiro
             this.BindingModel.CursorRatioX = pos.X / imgSource.Width;
             this.BindingModel.CursorRatioY = pos.Y / imgSource.Height;
 
-            this._updateCursorImageSubject.OnNext(Unit.Default);
-
             if (this._connection != null)
             {
                 try
@@ -270,6 +272,8 @@ namespace WagahighChoices.Mihiro
                     if (Debugger.IsAttached) Debugger.Break();
                 }
             }
+
+            this._updateCursorImageSubject.OnNext(Unit.Default);
         }
 
         private Point ToGamePosition(Point point)
@@ -364,12 +368,15 @@ namespace WagahighChoices.Mihiro
             }
         }
 
-        private void btnHash_Click(object sender, RoutedEventArgs e)
+        private void ShowHashCommand_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = this._screenImage != null;
+        }
+
+        private void ShowHashCommand_Executed(object sender, ExecutedRoutedEventArgs e)
         {
             const int hashLength = 32; // bits * bits / 8
             const string table = "0123456789abcdef";
-
-            if (this._screenImage == null) return;
 
             var hash = new byte[hashLength];
             Blockhash.ComputeHash(new Rgb2432InputImage(this._screenImage), hash);
@@ -401,14 +408,31 @@ namespace WagahighChoices.Mihiro
             this.imgScreen.StretchDirection = StretchDirection.DownOnly;
         }
 
-        private void CommandBinding_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        private void CopyLogCommand_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = this.lstLog.SelectedIndex >= 0;
         }
 
-        private void CommandBinding_Executed(object sender, ExecutedRoutedEventArgs e)
+        private void CopyLogCommand_Executed(object sender, ExecutedRoutedEventArgs e)
         {
             Clipboard.SetText((string)this.lstLog.SelectedItem);
+        }
+
+        private void SaveCursorCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            var dialog = new SaveFileDialog()
+            {
+                Title = "カーソル保存",
+                Filter = "すべてのファイル|*"
+            };
+
+            if (dialog.ShowDialog(this) != true) return;
+
+            using (var stream = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write))
+            {
+                var seg = this._cursorImage.Data;
+                stream.Write(seg.Array, seg.Offset, seg.Count);
+            }
         }
     }
 }
