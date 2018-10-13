@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MagicOnion" Version="0.5.2" />
+    <PackageReference Include="MagicOnion" Version="0.5.3" />
     <PackageReference Include="MessagePackAnalyzer" Version="1.6.0" PrivateAssets="All" />
   </ItemGroup>
 

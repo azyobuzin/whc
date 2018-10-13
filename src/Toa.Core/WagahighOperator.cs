@@ -15,7 +15,7 @@ namespace WagahighChoices.Toa
 
         public void Dispose()
         {
-            Dispose(true);
+            this.Dispose(true);
             GC.SuppressFinalize(this);
         }
 

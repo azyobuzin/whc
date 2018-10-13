@@ -6,7 +6,7 @@ namespace WagahighChoices
     partial class Blockhash
     {
         [StructLayout(LayoutKind.Auto)]
-        internal struct RestrictedBinaryHeap<T> where T : IComparable<T>
+        internal ref struct RestrictedBinaryHeap<T> where T : IComparable<T>
         {
             private Span<T> _array;
             private int _count;

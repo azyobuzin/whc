@@ -135,7 +135,6 @@ namespace WagahighChoices
 
                 // note: 公式 C 実装では 256
                 var h = 255 * 3 * (ulong)blockWidth * (ulong)blockHeight / 2;
-                var canCreateResultParallel = groupSize % 8 == 0;
 
                 Parallel.For(0, 4, groupIndex =>
                 {
@@ -163,63 +162,23 @@ namespace WagahighChoices
                         ? (heap.GetHead() + heap.GetSecond()) / 2
                         : heap.GetHead();
 
-                    if (!canCreateResultParallel)
-                    {
-                        blocks[blocksLength + groupIndex] = med;
-                        return;
-                    }
-
-                    // 8 で割り切れるのでうまいことやっていく
-                    if (med > h)
-                    {
-                        for (blockIndex = blockStart; blockIndex < blockEnd; blockIndex += 8)
-                        {
-                            uint b = 0;
-                            if (blocks[blockIndex] >= med) b |= 1 << 7;
-                            if (blocks[blockIndex + 1] >= med) b |= 1 << 6;
-                            if (blocks[blockIndex + 2] >= med) b |= 1 << 5;
-                            if (blocks[blockIndex + 3] >= med) b |= 1 << 4;
-                            if (blocks[blockIndex + 4] >= med) b |= 1 << 3;
-                            if (blocks[blockIndex + 5] >= med) b |= 1 << 2;
-                            if (blocks[blockIndex + 6] >= med) b |= 1 << 1;
-                            if (blocks[blockIndex + 7] >= med) b |= 1;
-                            dest[blockIndex / 8] = (byte)b;
-                        }
-                    }
-                    else
-                    {
-                        for (blockIndex = blockStart; blockIndex < blockEnd; blockIndex += 8)
-                        {
-                            uint b = 0;
-                            if (blocks[blockIndex] > med) b |= 1 << 7;
-                            if (blocks[blockIndex + 1] > med) b |= 1 << 6;
-                            if (blocks[blockIndex + 2] > med) b |= 1 << 5;
-                            if (blocks[blockIndex + 3] > med) b |= 1 << 4;
-                            if (blocks[blockIndex + 4] > med) b |= 1 << 3;
-                            if (blocks[blockIndex + 5] > med) b |= 1 << 2;
-                            if (blocks[blockIndex + 6] > med) b |= 1 << 1;
-                            if (blocks[blockIndex + 7] > med) b |= 1;
-                            dest[blockIndex / 8] = (byte)b;
-                        }
-                    }
+                    // 結果を余剰スペースに保存
+                    blocks[blocksLength + groupIndex] = med;
                 });
 
-                if (!canCreateResultParallel)
+                for (var groupIndex = 0; groupIndex < 4; groupIndex++)
                 {
-                    for (var groupIndex = 0; groupIndex < 4; groupIndex++)
+                    var med = blocks[blocksLength + groupIndex];
+                    var isMedLarger = med > h;
+
+                    var blockIndex = groupIndex * groupSize;
+                    var blockEnd = blockIndex + groupSize;
+
+                    for (; blockIndex < blockEnd; blockIndex++)
                     {
-                        var med = blocks[blocksLength + groupIndex];
-                        var isMedLarger = med > h;
-
-                        var blockIndex = groupIndex * groupSize;
-                        var blockEnd = blockIndex + groupSize;
-
-                        for (; blockIndex < blockEnd; blockIndex++)
-                        {
-                            var block = blocks[blockIndex];
-                            if (block > med || (isMedLarger && block == med))
-                                dest[blockIndex / 8] |= (byte)(1 << (7 - blockIndex % 8));
-                        }
+                        var block = blocks[blockIndex];
+                        if (block > med || (isMedLarger && block == med))
+                            dest[blockIndex / 8] |= (byte)(1 << (7 - blockIndex % 8));
                     }
                 }
             }
@@ -290,7 +249,6 @@ namespace WagahighChoices
 
                 // note: 公式 C 実装では 256
                 var h = 255 * 3 * blockWidth * blockHeight / 2;
-                var canCreateResultParallel = groupSize % 8 == 0;
 
                 Parallel.For(0, 4, groupIndex =>
                 {
@@ -318,63 +276,23 @@ namespace WagahighChoices
                         ? (heap.GetHead() + heap.GetSecond()) / 2
                         : heap.GetHead();
 
-                    if (!canCreateResultParallel)
-                    {
-                        blocks[blocksLength + groupIndex] = med;
-                        return;
-                    }
-
-                    // 8 で割り切れるのでうまいことやっていく
-                    if (med > h)
-                    {
-                        for (blockIndex = blockStart; blockIndex < blockEnd; blockIndex += 8)
-                        {
-                            uint b = 0;
-                            if (blocks[blockIndex] >= med) b |= 1 << 7;
-                            if (blocks[blockIndex + 1] >= med) b |= 1 << 6;
-                            if (blocks[blockIndex + 2] >= med) b |= 1 << 5;
-                            if (blocks[blockIndex + 3] >= med) b |= 1 << 4;
-                            if (blocks[blockIndex + 4] >= med) b |= 1 << 3;
-                            if (blocks[blockIndex + 5] >= med) b |= 1 << 2;
-                            if (blocks[blockIndex + 6] >= med) b |= 1 << 1;
-                            if (blocks[blockIndex + 7] >= med) b |= 1;
-                            dest[blockIndex / 8] = (byte)b;
-                        }
-                    }
-                    else
-                    {
-                        for (blockIndex = blockStart; blockIndex < blockEnd; blockIndex += 8)
-                        {
-                            uint b = 0;
-                            if (blocks[blockIndex] > med) b |= 1 << 7;
-                            if (blocks[blockIndex + 1] > med) b |= 1 << 6;
-                            if (blocks[blockIndex + 2] > med) b |= 1 << 5;
-                            if (blocks[blockIndex + 3] > med) b |= 1 << 4;
-                            if (blocks[blockIndex + 4] > med) b |= 1 << 3;
-                            if (blocks[blockIndex + 5] > med) b |= 1 << 2;
-                            if (blocks[blockIndex + 6] > med) b |= 1 << 1;
-                            if (blocks[blockIndex + 7] > med) b |= 1;
-                            dest[blockIndex / 8] = (byte)b;
-                        }
-                    }
+                    // 結果を余剰スペースに保存
+                    blocks[blocksLength + groupIndex] = med;
                 });
 
-                if (!canCreateResultParallel)
+                for (var groupIndex = 0; groupIndex < 4; groupIndex++)
                 {
-                    for (var groupIndex = 0; groupIndex < 4; groupIndex++)
+                    var med = blocks[blocksLength + groupIndex];
+                    var isMedLarger = med > h;
+
+                    var blockIndex = groupIndex * groupSize;
+                    var blockEnd = blockIndex + groupSize;
+
+                    for (; blockIndex < blockEnd; blockIndex++)
                     {
-                        var med = blocks[blocksLength + groupIndex];
-                        var isMedLarger = med > h;
-
-                        var blockIndex = groupIndex * groupSize;
-                        var blockEnd = blockIndex + groupSize;
-
-                        for (; blockIndex < blockEnd; blockIndex++)
-                        {
-                            var block = blocks[blockIndex];
-                            if (block > med || (isMedLarger && Math.Abs(block - med) < 1.0))
-                                dest[blockIndex / 8] |= (byte)(1 << (7 - blockIndex % 8));
-                        }
+                        var block = blocks[blockIndex];
+                        if (block > med || (isMedLarger && Math.Abs(block - med) < 1.0))
+                            dest[blockIndex / 8] |= (byte)(1 << (7 - blockIndex % 8));
                     }
                 }
             }

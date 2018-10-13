@@ -1,10 +1,12 @@
 FROM wagahigh
 
 USER root
-RUN wget -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg && \
-    sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-zesty-prod zesty main" > /etc/apt/sources.list.d/dotnetdev.list' && \
+
+RUN wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
     apt-get update -y && \
-    apt-get install -y dotnet-runtime-2.0.0 && \
+    apt-get install -y dotnet-runtime-2.1 && \
     rm -rf /var/lib/apt/lists/*
 
 USER wagahigh
