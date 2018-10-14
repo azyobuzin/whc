@@ -27,7 +27,7 @@ namespace WagahighChoices
 
         public static int GetDistance(ArraySegment<byte> bs1, ArraySegment<byte> bs2)
         {
-            if (bs1.Count != bs2.Count) throw new ArgumentException("bs1 と b2 の長さが違います。");
+            if (bs1.Count != bs2.Count) throw new ArgumentException("bs1 と bs2 の長さが違います。");
 
             var count = bs1.Count;
             var distance = 0;

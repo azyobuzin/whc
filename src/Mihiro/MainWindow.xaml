@@ -71,9 +71,9 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="カーソル位置2: " />
-                        <TextBlock Text="{Binding CursorRatioX}" MouseDown="ValueTextBlock_MouseDown" />
+                        <TextBlock Text="{Binding CursorRatioX, StringFormat={}{0:F4}}" MouseDown="ValueTextBlock_MouseDown" />
                         <TextBlock Text=" , " />
-                        <TextBlock Text="{Binding CursorRatioY}" MouseDown="ValueTextBlock_MouseDown" />
+                        <TextBlock Text="{Binding CursorRatioY, StringFormat={}{0:F4}}" MouseDown="ValueTextBlock_MouseDown" />
                     </StackPanel>
                     <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大表示</CheckBox>
                 </StackPanel>

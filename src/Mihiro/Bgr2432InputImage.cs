@@ -1,8 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using WagahighChoices.Toa;
 
-// TODO: Ashe のほうに移動させる
-namespace WagahighChoices.Mihiro
+namespace WagahighChoices
 {
     /// <summary>
     /// <see cref="Bgra32Image"/> の <see cref="Pixel.A"/> を無視してピクセル情報を公開します。

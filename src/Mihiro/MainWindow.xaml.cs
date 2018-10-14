@@ -16,7 +16,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
@@ -165,6 +164,9 @@ namespace WagahighChoices.Mihiro
                 this._connection = null;
                 MessageBox.Show(this, ex.ToString(), "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+
+            // CanExecute 更新チェック
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private async Task UpdateScreen()
