@@ -10,9 +10,8 @@ namespace WagahighChoices.Toa
         private readonly Decoder _decoder = Encoding.Unicode.GetDecoder();
         private readonly byte[] _buffer = new byte[256];
         private char[] _charBuffer = new char[128];
-        private int _charBufIndex;
+        private int _charBufCount;
         private bool _needToCheckBuffer; // 読み込む前にバッファーに改行が含まれていないかチェックするべきかどうか
-        private long _lastFileLength;
 
         public LogFileReader(string path)
         {
@@ -23,16 +22,16 @@ namespace WagahighChoices.Toa
         {
             if (this._needToCheckBuffer)
             {
-                for (var i = 0; i < this._charBufIndex; i++)
+                for (var i = 0; i < this._charBufCount; i++)
                 {
                     if (this._charBuffer[i] == '\n')
                     {
                         var strSize = i > 0 && this._charBuffer[i - 1] == '\r'
-                           ? i - 1 : i;
+                            ? i - 1 : i;
                         var result = new string(this._charBuffer, 0, strSize);
 
-                        this._charBufIndex = this._charBufIndex - i - 1;
-                        Array.Copy(this._charBuffer, i + 1, this._charBuffer, 0, this._charBufIndex);
+                        this._charBufCount -= i + 1;
+                        Array.Copy(this._charBuffer, i + 1, this._charBuffer, 0, this._charBufCount);
 
                         return result;
                     }
@@ -41,41 +40,41 @@ namespace WagahighChoices.Toa
                 this._needToCheckBuffer = false;
             }
 
-            var newLength = this._stream.Length; // FileStream.Length はメソッドにするべきでは？
-            if (newLength <= this._lastFileLength) return null;
-            this._lastFileLength = newLength;
-
             while (true)
             {
                 var byteCount = this._stream.Read(this._buffer, 0, this._buffer.Length);
                 if (byteCount == 0) return null;
 
-                if (this._charBufIndex + (byteCount + 1) / 2 > this._charBuffer.Length)
+                var requiredLength = this._charBufCount + (byteCount + 1) / 2;
+                if (requiredLength > this._charBuffer.Length)
                 {
+                    var newCharBufLength = this._charBuffer.Length * 2;
+                    while (newCharBufLength < requiredLength) newCharBufLength *= 2;
+
                     // 拡張
-                    Array.Resize(ref this._charBuffer, this._charBuffer.Length * 2);
+                    Array.Resize(ref this._charBuffer, newCharBufLength);
                 }
 
-                var charCount = this._decoder.GetChars(this._buffer, 0, byteCount, this._charBuffer, this._charBufIndex);
+                var charCount = this._decoder.GetChars(this._buffer, 0, byteCount, this._charBuffer, this._charBufCount);
 
                 for (var i = 0; i < charCount; i++)
                 {
-                    var index = this._charBufIndex + i;
+                    var index = this._charBufCount + i;
                     if (this._charBuffer[index] == '\n')
                     {
                         var strSize = index > 0 && this._charBuffer[index - 1] == '\r'
                             ? index - 1 : index;
                         var result = new string(this._charBuffer, 0, strSize);
 
-                        this._charBufIndex = charCount - i - 1;
-                        Array.Copy(this._charBuffer, index + 1, this._charBuffer, 0, this._charBufIndex);
+                        this._charBufCount = charCount - i - 1;
+                        Array.Copy(this._charBuffer, index + 1, this._charBuffer, 0, this._charBufCount);
                         this._needToCheckBuffer = true;
 
                         return result;
                     }
                 }
 
-                this._charBufIndex += charCount;
+                this._charBufCount += charCount;
             }
         }
 
