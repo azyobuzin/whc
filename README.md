@@ -1,7 +1,10 @@
 # WagahighChoices 2nd VISION
 ワガママハイスペックの全ルートを探索して、誰の初期好感度が最も高いかを調べよう！
 
-前回: https://1drv.ms/p/s!Am67Z1cgKi98g9Ia-1lCD5eDsUPrSQ
+途中経過報告
+
+1. https://1drv.ms/p/s!Am67Z1cgKi98g9Ia-1lCD5eDsUPrSQ
+2. https://1drv.ms/p/s!Am67Z1cgKi98g9k_5Ac-y07q3_LLUg
 
 # 今回こそは！
 ワガママハイスペックを Docker に乗せて分散処理させて、 Windows マシンを占有せずに探索します。
