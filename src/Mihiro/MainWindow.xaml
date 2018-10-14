@@ -13,6 +13,7 @@
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.CopyLogCommand}" CanExecute="CopyLogCommand_CanExecute" Executed="CopyLogCommand_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.ShowHashCommand}" CanExecute="ShowHashCommand_CanExecute" Executed="ShowHashCommand_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindow.SaveImageCommand}" CanExecute="CommandBinding_CanExecute" Executed="CommandBinding_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.SaveCursorCommand}" CanExecute="ShowHashCommand_CanExecute" Executed="SaveCursorCommand_Executed" />
     </Window.CommandBindings>
 
@@ -74,12 +75,13 @@
                         <TextBlock Text=" , " />
                         <TextBlock Text="{Binding CursorRatioY}" MouseDown="ValueTextBlock_MouseDown" />
                     </StackPanel>
+                    <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大表示</CheckBox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Vertical">
                     <Button Name="btnHash" Command="{x:Static local:MainWindow.ShowHashCommand}">画像ハッシュ</Button>
+                    <Button Name="btnSaveImage" Command="{x:Static local:MainWindow.SaveImageCommand}">スクリーンショット保存</Button>
                     <Button Name="btnSaveCursor" Command="{x:Static local:MainWindow.SaveCursorCommand}">カーソル保存</Button>
-                    <CheckBox Name="chkExpansion" Checked="chkExpansion_Checked" Unchecked="chkExpansion_Unchecked">拡大</CheckBox>
                 </StackPanel>
 
                 <Grid Grid.Column="3" VerticalAlignment="Top" Background="Black" Width="32" Height="32">

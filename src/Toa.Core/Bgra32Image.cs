@@ -3,13 +3,13 @@ using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Toa
 {
-    public abstract class Argb32Image : IDisposable
+    public abstract class Bgra32Image : IDisposable
     {
         public int Width { get; }
         public int Height { get; }
         public abstract ArraySegment<byte> Data { get; }
 
-        protected Argb32Image(int width, int height)
+        protected Bgra32Image(int width, int height)
         {
             if (width < 0) throw new ArgumentOutOfRangeException(nameof(width));
             if (height < 0) throw new ArgumentOutOfRangeException(nameof(height));
@@ -27,7 +27,7 @@ namespace WagahighChoices.Toa
         }
     }
 
-    internal class GetImageResultImage : Argb32Image
+    internal class GetImageResultImage : Bgra32Image
     {
         private readonly GetImageResult _inner;
 
@@ -49,7 +49,7 @@ namespace WagahighChoices.Toa
         }
     }
 
-    internal class GetCursorImageResultImage : Argb32Image
+    internal class GetCursorImageResultImage : Bgra32Image
     {
         private readonly XFixesGetCursorImageResult _inner;
 

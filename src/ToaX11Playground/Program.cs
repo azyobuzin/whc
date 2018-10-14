@@ -101,7 +101,7 @@ namespace ToaX11Playground
 
         private static void SaveImage(byte[] data, int width, int height)
         {
-            using (var img = Image.LoadPixelData<Argb32>(data, width, height))
+            using (var img = Image.LoadPixelData<Bgra32>(data, width, height))
             {
                 for (var y = 0; y < img.Height; y++)
                 {
@@ -119,7 +119,7 @@ namespace ToaX11Playground
 
         private static void SaveCursor(byte[] data, int width, int height, string fileName)
         {
-            using (var img = Image.LoadPixelData<Argb32>(data, width, height))
+            using (var img = Image.LoadPixelData<Bgra32>(data, width, height))
             {
                 img.Save(fileName);
             }

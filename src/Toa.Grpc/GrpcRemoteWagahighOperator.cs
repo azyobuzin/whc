@@ -40,13 +40,13 @@ namespace WagahighChoices.Toa.Grpc
 
         public Task ConnectAsync() => this._channel.ConnectAsync();
 
-        public override Task<Argb32Image> CaptureContentAsync() => this._service.CaptureContent().ResponseAsync;
+        public override Task<Bgra32Image> CaptureContentAsync() => this._service.CaptureContent().ResponseAsync;
 
         public override Task SetCursorPositionAsync(short x, short y) => this._service.SetCursorPosition(x, y).ResponseAsync;
 
         public override Task MouseClickAsync() => this._service.MouseClick().ResponseAsync;
 
-        public override Task<Argb32Image> GetCursorImageAsync() => this._service.GetCursorImage().ResponseAsync;
+        public override Task<Bgra32Image> GetCursorImageAsync() => this._service.GetCursorImage().ResponseAsync;
 
         public override IObservable<string> LogStream { get; }
 

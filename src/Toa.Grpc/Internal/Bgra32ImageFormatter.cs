@@ -5,9 +5,9 @@ using MessagePack.Formatters;
 namespace WagahighChoices.Toa.Grpc.Internal
 {
     // シリアライズして Dispose するやつ
-    internal class Argb32ImageFormatter : IMessagePackFormatter<Argb32Image>
+    internal class Bgra32ImageFormatter : IMessagePackFormatter<Bgra32Image>
     {
-        public int Serialize(ref byte[] bytes, int offset, Argb32Image value, IFormatterResolver formatterResolver)
+        public int Serialize(ref byte[] bytes, int offset, Bgra32Image value, IFormatterResolver formatterResolver)
         {
             if (value == null)
             {
@@ -32,7 +32,7 @@ namespace WagahighChoices.Toa.Grpc.Internal
             return offset - startOffset;
         }
 
-        public Argb32Image Deserialize(byte[] bytes, int offset, IFormatterResolver formatterResolver, out int readSize)
+        public Bgra32Image Deserialize(byte[] bytes, int offset, IFormatterResolver formatterResolver, out int readSize)
         {
             if (MessagePackBinary.IsNil(bytes, offset))
             {
@@ -57,7 +57,7 @@ namespace WagahighChoices.Toa.Grpc.Internal
             offset += rs;
 
             readSize = offset - startOffset;
-            return new Argb32ImageFromMessagePack(width, height, data);
+            return new Bgra32ImageFromMessagePack(width, height, data);
         }
     }
 }

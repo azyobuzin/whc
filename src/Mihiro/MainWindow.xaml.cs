@@ -15,8 +15,12 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
 using WagahighChoices.Toa.Grpc;
+using ISImage = SixLabors.ImageSharp.Image;
 
 namespace WagahighChoices.Mihiro
 {
@@ -32,13 +36,14 @@ namespace WagahighChoices.Mihiro
 
         public static readonly RoutedCommand CopyLogCommand = new RoutedCommand();
         public static readonly RoutedCommand ShowHashCommand = new RoutedCommand();
+        public static readonly RoutedCommand SaveImageCommand = new RoutedCommand();
         public static readonly RoutedCommand SaveCursorCommand = new RoutedCommand();
 
         private WagahighOperator _connection;
         private DispatcherTimer _timer;
         private readonly Subject<Unit> _updateCursorImageSubject = new Subject<Unit>();
-        private Argb32Image _screenImage;
-        private Argb32Image _cursorImage;
+        private Bgra32Image _screenImage;
+        private Bgra32Image _cursorImage;
         private IDisposable _logSubscription;
         private ScrollViewer _logScrollViewer;
 
@@ -191,7 +196,7 @@ namespace WagahighChoices.Mihiro
                 this.imgScreen.Source = source;
         }
 
-        private static unsafe void CopyPixels(Argb32Image image, IntPtr dest, int destLength)
+        private static unsafe void CopyPixels(Bgra32Image image, IntPtr dest, int destLength)
         {
             ((Span<byte>)image.Data).CopyTo(new Span<byte>((void*)dest, destLength));
         }
@@ -379,7 +384,7 @@ namespace WagahighChoices.Mihiro
             const string table = "0123456789abcdef";
 
             var hash = new byte[hashLength];
-            Blockhash.ComputeHash(new Rgb2432InputImage(this._screenImage), hash);
+            Blockhash.ComputeHash(new Bgr2432InputImage(this._screenImage), hash);
 
             var s = new string('\0', hashLength * 2);
             unsafe
@@ -396,6 +401,33 @@ namespace WagahighChoices.Mihiro
 
             Clipboard.SetText(s);
             MessageBox.Show(this, s, "画像ハッシュ");
+        }
+
+        private void CommandBinding_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = this._screenImage != null;
+        }
+
+        private void CommandBinding_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            var dialog = new SaveFileDialog()
+            {
+                Title = "スクリーンショット保存",
+                Filter = "PNG|*.png|すべてのファイル|*"
+            };
+
+            if (dialog.ShowDialog(this) != true) return;
+
+            using (var image = ISImage.LoadPixelData<Bgra32>(this._screenImage.Data, this._screenImage.Width, this._screenImage.Height))
+            {
+                foreach (ref var pixel in image.GetPixelSpan())
+                    pixel.A = 255;
+
+                using (var stream = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write))
+                {
+                    image.SaveAsPng(stream);
+                }
+            }
         }
 
         private void chkExpansion_Checked(object sender, RoutedEventArgs e)
@@ -423,15 +455,15 @@ namespace WagahighChoices.Mihiro
             var dialog = new SaveFileDialog()
             {
                 Title = "カーソル保存",
-                Filter = "すべてのファイル|*"
+                Filter = "PNG|*.png|すべてのファイル|*"
             };
 
             if (dialog.ShowDialog(this) != true) return;
 
+            using (var image = ISImage.LoadPixelData<Bgra32>(this._cursorImage.Data, this._cursorImage.Width, this._cursorImage.Height))
             using (var stream = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write))
             {
-                var seg = this._cursorImage.Data;
-                stream.Write(seg.Array, seg.Offset, seg.Count);
+                image.SaveAsPng(stream);
             }
         }
     }

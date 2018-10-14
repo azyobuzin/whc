@@ -3,7 +3,7 @@ using System.Buffers;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {
-    internal class Argb32ImageFromMessagePack : Argb32Image
+    internal class Bgra32ImageFromMessagePack : Bgra32Image
     {
         private static readonly ArrayPool<byte> s_pool = ArrayPool<byte>.Shared;
 
@@ -11,7 +11,7 @@ namespace WagahighChoices.Toa.Grpc.Internal
         private readonly int _dataLength;
         public override ArraySegment<byte> Data => new ArraySegment<byte>(this._data, 0, this._dataLength);
 
-        public Argb32ImageFromMessagePack(int width, int height, ArraySegment<byte> data)
+        public Bgra32ImageFromMessagePack(int width, int height, ArraySegment<byte> data)
             : base(width, height)
         {
             this._data = s_pool.Rent(data.Count);

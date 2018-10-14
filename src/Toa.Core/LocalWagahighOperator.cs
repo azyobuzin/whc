@@ -171,7 +171,7 @@ namespace WagahighChoices.Toa
             return children[maxIndex];
         }
 
-        public override async Task<Argb32Image> CaptureContentAsync()
+        public override async Task<Bgra32Image> CaptureContentAsync()
         {
             var contentGeometry = await this._x11Client.GetGeometryAsync(this._contentWindow).ConfigureAwait(false);
             var contentPoint = await this._x11Client.TranslateCoordinatesAsync(
@@ -207,7 +207,7 @@ namespace WagahighChoices.Toa
             ).ConfigureAwait(false);
         }
 
-        public override async Task<Argb32Image> GetCursorImageAsync()
+        public override async Task<Bgra32Image> GetCursorImageAsync()
         {
             var res = await this._x11Client.XFixes.GetCursorImageAsync().ConfigureAwait(false);
             return new GetCursorImageResultImage(res);

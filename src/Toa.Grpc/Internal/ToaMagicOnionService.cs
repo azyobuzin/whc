@@ -12,9 +12,9 @@ namespace WagahighChoices.Toa.Grpc.Internal
         public WagahighOperator WagahighOperator => this.Context.Items[InjectWagahighOperatorFilterAttribute.ItemKey] as WagahighOperator
             ?? throw new InvalidOperationException(nameof(InjectWagahighOperatorFilterAttribute) + " が指定されていません。");
 
-        public UnaryResult<Argb32Image> CaptureContent()
+        public UnaryResult<Bgra32Image> CaptureContent()
         {
-            return new UnaryResult<Argb32Image>(this.WagahighOperator.CaptureContentAsync());
+            return new UnaryResult<Bgra32Image>(this.WagahighOperator.CaptureContentAsync());
         }
 
         public async UnaryResult<Nil> SetCursorPosition(short x, short y)
@@ -29,9 +29,9 @@ namespace WagahighChoices.Toa.Grpc.Internal
             return Nil.Default;
         }
 
-        public UnaryResult<Argb32Image> GetCursorImage()
+        public UnaryResult<Bgra32Image> GetCursorImage()
         {
-            return new UnaryResult<Argb32Image>(this.WagahighOperator.GetCursorImageAsync());
+            return new UnaryResult<Bgra32Image>(this.WagahighOperator.GetCursorImageAsync());
         }
 
         public async Task<ServerStreamingResult<string>> LogStream()

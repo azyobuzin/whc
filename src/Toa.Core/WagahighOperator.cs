@@ -20,7 +20,7 @@ namespace WagahighChoices.Toa
         }
 
         /// <summary>ゲーム領域の画像を取得します。</summary>
-        public abstract Task<Argb32Image> CaptureContentAsync();
+        public abstract Task<Bgra32Image> CaptureContentAsync();
 
         /// <summary>カーソルをゲーム領域の左上から見て <paramref name="x"/>, <paramref name="y"/> の位置に移動します。</summary>
         public abstract Task SetCursorPositionAsync(short x, short y);
@@ -29,7 +29,7 @@ namespace WagahighChoices.Toa
         public abstract Task MouseClickAsync();
 
         /// <summary>現在のカーソルを取得します。</summary>
-        public abstract Task<Argb32Image> GetCursorImageAsync();
+        public abstract Task<Bgra32Image> GetCursorImageAsync();
 
         public abstract IObservable<string> LogStream { get; }
     }
