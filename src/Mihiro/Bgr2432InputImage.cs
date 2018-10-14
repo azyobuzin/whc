@@ -8,7 +8,7 @@ namespace WagahighChoices.Mihiro
     /// <see cref="Bgra32Image"/> の <see cref="Pixel.A"/> を無視してピクセル情報を公開します。
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    internal struct Bgr2432InputImage : IInputImage
+    internal readonly struct Bgr2432InputImage : IInputImage
     {
         private readonly Bgra32Image _image;
         private readonly byte[] _data;

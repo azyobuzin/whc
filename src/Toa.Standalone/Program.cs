@@ -2,7 +2,7 @@
 using System.Threading;
 using Grpc.Core;
 using Grpc.Core.Logging;
-using Microsoft.Extensions.CommandLineUtils;
+using McMaster.Extensions.CommandLineUtils;
 using WagahighChoices.Toa.Grpc;
 using WagahighChoices.Toa.X11;
 using WagahighChoices.Utils;

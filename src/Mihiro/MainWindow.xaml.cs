@@ -17,6 +17,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
 using WagahighChoices.Toa.Grpc;
@@ -420,12 +421,9 @@ namespace WagahighChoices.Mihiro
 
             using (var image = ISImage.LoadPixelData<Bgra32>(this._screenImage.Data, this._screenImage.Width, this._screenImage.Height))
             {
-                foreach (ref var pixel in image.GetPixelSpan())
-                    pixel.A = 255;
-
                 using (var stream = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write))
                 {
-                    image.SaveAsPng(stream);
+                    image.Save(stream, new PngEncoder() { ColorType = PngColorType.Rgb });
                 }
             }
         }
