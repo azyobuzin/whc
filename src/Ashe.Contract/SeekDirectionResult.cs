@@ -22,6 +22,11 @@ namespace WagahighChoices.Ashe
             this.JobId = jobId;
             this.Actions = actions;
         }
+
+        public SeekDirectionResult(SeekDirectionResultKind kind)
+        {
+            this.Kind = kind;
+        }
     }
 
     public enum SeekDirectionResultKind

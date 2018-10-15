@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using WagahighChoices.Toa;
 using WagahighChoices.Toa.Grpc;
+using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Ashe
 {
@@ -27,9 +30,32 @@ namespace WagahighChoices.Ashe
         [Option("-d|--directory <dir>", Description = "ワガママハイスペック.exe が存在するディレクトリ（Toa を使用しない場合）")]
         public string Directory { get; set; }
 
-        private void OnExecute()
+        private async Task<int> OnExecuteAsync()
         {
+            var logger = new Logger();
 
+            WagahighOperator wagahighOperator;
+            if (this.ToaHost != null)
+            {
+                logger.Info($"Toa サーバー {this.ToaHost}:{this.ToaPort} に接続します。");
+                var remoteOperator = new GrpcRemoteWagahighOperator(this.ToaHost, this.ToaPort);
+                await remoteOperator.ConnectAsync();
+                wagahighOperator = remoteOperator;
+            }
+            else
+            {
+                logger.Info("ワガママハイスペックを起動します。");
+                var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
+                wagahighOperator = await LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display);
+            }
+
+            using (wagahighOperator)
+            {
+                // TODO: 「はじめから」の位置にカーソルを置き、カーソルが hand2 になるまで待つ
+                // TODO: 最初の選択肢まで移動し、クイックセーブする
+            }
+
+            return 0;
         }
     }
 }
