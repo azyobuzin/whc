@@ -9,65 +9,48 @@ using WagahighChoices.Utils;
 
 namespace WagahighChoices.Toa.Standalone
 {
-    public static class Program
+    [Command(Name = "toa", FullName = "Toa", Description = "ワガママハイスペック ウィンドウ操作サービス")]
+    public class Program
     {
         public static int Main(string[] args)
         {
-            var app = new CommandLineApplication()
+            return CommandLineApplication.Execute<Program>(args);
+        }
+
+        [Option("-d|--directory <dir>", Description = "ワガママハイスペック.exe が存在するディレクトリ")]
+        public string Directory { get; set; }
+
+        [Option("-p|--port <port>", Description = "使用するポート番号（デフォルト: 51203）")]
+        public int Port { get; set; } = GrpcToaServer.DefaultPort;
+
+        private void OnExecute()
+        {
+            var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
+
+            // Ctrl + C が押されたときの動作を設定しておく
+            var w = new ManualResetEvent(false);
+            var canceled = 0;
+            Console.CancelKeyPress += (_, e) =>
             {
-                FullName = "Toa",
-                Description = "ワガママハイスペック ウィンドウ操作サービス",
+                if (Interlocked.CompareExchange(ref canceled, 1, 0) == 0)
+                {
+                    Log.WriteMessage("Terminating");
+                    e.Cancel = true;
+                    w.Set();
+                }
             };
 
-            app.HelpOption("-?|-h|--help");
+            GrpcEnvironment.SetLogger(new ConsoleLogger());
 
-            var directoryOption = app.Option(
-                "-d|--directory <dir>",
-                "ワガママハイスペック.exe が存在するディレクトリ",
-                CommandOptionType.SingleValue
-            );
-
-            var portOption = app.Option(
-                "-p|--port <port>",
-                "使用するポート番号",
-                CommandOptionType.SingleValue
-            );
-
-            app.OnExecute(() =>
+            // サーバー開始
+            // 0.0.0.0 を指定: https://github.com/grpc/grpc/issues/10570
+            using (var wagahighOperator = LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display).Result)
+            using (var server = new GrpcToaServer("0.0.0.0", this.Port, wagahighOperator))
             {
-                var directory = directoryOption.Value() ?? "";
-                var port = portOption.HasValue() ? int.Parse(portOption.Value()) : GrpcToaServer.DefaultPort;
-                var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
-
-                // Ctrl + C が押されたときの動作を設定しておく
-                var w = new ManualResetEvent(false);
-                var canceled = 0;
-                Console.CancelKeyPress += (_, e) =>
-                {
-                    if (Interlocked.CompareExchange(ref canceled, 1, 0) == 0)
-                    {
-                        Log.WriteMessage("Terminating");
-                        e.Cancel = true;
-                        w.Set();
-                    }
-                };
-
-                GrpcEnvironment.SetLogger(new ConsoleLogger());
-
-                // サーバー開始
-                // 0.0.0.0 を指定: https://github.com/grpc/grpc/issues/10570
-                using (var wagahighOperator = LocalWagahighOperator.StartProcessAsync(directory, display).Result)
-                using (var server = new GrpcToaServer("0.0.0.0", port, wagahighOperator))
-                {
-                    server.Start();
-                    Log.WriteMessage("Listening " + port);
-                    w.WaitOne();
-                }
-
-                return 0;
-            });
-
-            return app.Execute(args);
+                server.Start();
+                Log.WriteMessage("Listening " + this.Port);
+                w.WaitOne();
+            }
         }
     }
 }

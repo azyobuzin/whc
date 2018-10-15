@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using McMaster.Extensions.CommandLineUtils;
 using WagahighChoices.Toa.X11;
 
 namespace WagahighChoices.Toa
@@ -40,7 +41,9 @@ namespace WagahighChoices.Toa
         private void StartProcess(string directory)
         {
             const string exeName = "ワガママハイスペック.exe";
-            this._process = Process.Start("wine", "\"" + JoinPathInWindows(directory, exeName) + "\" -forcelog=clear");
+            this._process = Process.Start(
+                "wine",
+                ArgumentEscaper.EscapeAndConcatenate(new[] { JoinPathInWindows(directory, exeName), "-forcelog=clear" }));
 
             var logFilePath = Path.Combine(ToUnixPath(directory), "savedata", "krkr.console.log");
 

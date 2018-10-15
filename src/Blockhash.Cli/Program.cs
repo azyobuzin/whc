@@ -17,7 +17,7 @@ namespace WagahighChoices.BlockhashCli
         [Argument(0), Required]
         public string[] InputFiles { get; set; }
 
-        [Option]
+        [Option("--bits <N>", Description = "N^2 ビットのハッシュを作成します（デフォルト: 16）")]
         public int Bits { get; set; } = 16;
 
         private int OnExecute()

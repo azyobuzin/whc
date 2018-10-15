@@ -15,7 +15,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toa.Grpc", "Toa.Grpc\Toa.Gr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toa.Standalone", "Toa.Standalone\Toa.Standalone.csproj", "{E7B7A49B-2FAF-4217-A3E4-D9F873D2E412}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blockhash.Cli", "Blockhash.Cli\Blockhash.Cli.csproj", "{15BF0521-E6A2-4294-BAE5-9A2F7357D846}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blockhash.Cli", "Blockhash.Cli\Blockhash.Cli.csproj", "{15BF0521-E6A2-4294-BAE5-9A2F7357D846}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ashe", "Ashe\Ashe.csproj", "{44BE79C7-D6D2-4D2A-A04B-BE6E7F971565}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ashe.Contract", "Ashe.Contract\Ashe.Contract.csproj", "{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +55,14 @@ Global
 		{15BF0521-E6A2-4294-BAE5-9A2F7357D846}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{15BF0521-E6A2-4294-BAE5-9A2F7357D846}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{15BF0521-E6A2-4294-BAE5-9A2F7357D846}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44BE79C7-D6D2-4D2A-A04B-BE6E7F971565}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44BE79C7-D6D2-4D2A-A04B-BE6E7F971565}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44BE79C7-D6D2-4D2A-A04B-BE6E7F971565}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44BE79C7-D6D2-4D2A-A04B-BE6E7F971565}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

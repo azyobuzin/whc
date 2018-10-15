@@ -33,6 +33,7 @@ namespace WagahighChoices.Toa.Grpc
                 Services = { service },
                 Ports = { new ServerPort(host, port, ServerCredentials.Insecure) }
             };
+
             this._wagahighOperator = wagahighOperator;
         }
 
