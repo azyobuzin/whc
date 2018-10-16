@@ -30,32 +30,57 @@ namespace WagahighChoices.Ashe
         [Option("-d|--directory <dir>", Description = "ワガママハイスペック.exe が存在するディレクトリ（Toa を使用しない場合）")]
         public string Directory { get; set; }
 
+        private Logger Logger { get; } = new Logger();
+
         private async Task<int> OnExecuteAsync()
         {
-            var logger = new Logger();
+            var wagahighOperator = await this.CreateWagahighOperator().ConfigureAwait(false);
 
-            WagahighOperator wagahighOperator;
-            if (this.ToaHost != null)
+            SearchDirector searchDirector;
+            try
             {
-                logger.Info($"Toa サーバー {this.ToaHost}:{this.ToaPort} に接続します。");
-                var remoteOperator = new GrpcRemoteWagahighOperator(this.ToaHost, this.ToaPort);
-                await remoteOperator.ConnectAsync();
-                wagahighOperator = remoteOperator;
+                searchDirector = new ConsoleSearchDirector();
+                await this.Logger.SetSearchDirectorAsync(searchDirector).ConfigureAwait(false);
             }
-            else
+            catch (Exception ex)
             {
-                logger.Info("ワガママハイスペックを起動します。");
-                var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
-                wagahighOperator = await LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display);
+                Console.Error.WriteLine("[{0}] Error: {1}", DateTime.Now, ex);
+                wagahighOperator.Dispose();
+                return 1;
             }
 
+            using (searchDirector)
             using (wagahighOperator)
             {
-                // TODO: 「はじめから」の位置にカーソルを置き、カーソルが hand2 になるまで待つ
-                // TODO: 最初の選択肢まで移動し、クイックセーブする
+                await this.StartGameAndQuickSave(wagahighOperator).ConfigureAwait(false);
             }
 
             return 0;
+        }
+
+        private async Task<WagahighOperator> CreateWagahighOperator()
+        {
+            if (this.ToaHost != null)
+            {
+                this.Logger.Info($"Toa サーバー {this.ToaHost}:{this.ToaPort} に接続します。");
+                var remoteOperator = new GrpcRemoteWagahighOperator(this.ToaHost, this.ToaPort);
+                await remoteOperator.ConnectAsync().ConfigureAwait(false);
+                return remoteOperator;
+            }
+            else
+            {
+                this.Logger.Info("ワガママハイスペックを起動します。");
+                var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
+                return await LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// ゲームをはじめから開始し、最初の選択肢でクイックセーブする
+        /// </summary>
+        private async Task StartGameAndQuickSave(WagahighOperator wagahighOperator)
+        {
+            // TODO
         }
     }
 }

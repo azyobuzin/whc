@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Grpc.Core;
@@ -41,6 +42,8 @@ namespace WagahighChoices.Toa.Grpc
         public Task ConnectAsync() => this._channel.ConnectAsync();
 
         public override Task<Bgra32Image> CaptureContentAsync() => this._service.CaptureContent().ResponseAsync;
+
+        public override Task<Size> GetContentSizeAsync() => this._service.GetContentSize().ResponseAsync;
 
         public override Task SetCursorPositionAsync(short x, short y) => this._service.SetCursorPosition(x, y).ResponseAsync;
 

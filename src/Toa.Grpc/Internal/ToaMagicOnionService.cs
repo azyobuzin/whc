@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using MagicOnion;
@@ -15,6 +16,11 @@ namespace WagahighChoices.Toa.Grpc.Internal
         public UnaryResult<Bgra32Image> CaptureContent()
         {
             return new UnaryResult<Bgra32Image>(this.WagahighOperator.CaptureContentAsync());
+        }
+
+        public UnaryResult<Size> GetContentSize()
+        {
+            return new UnaryResult<Size>(this.WagahighOperator.GetContentSizeAsync());
         }
 
         public async UnaryResult<Nil> SetCursorPosition(short x, short y)

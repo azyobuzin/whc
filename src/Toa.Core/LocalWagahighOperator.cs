@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -131,6 +132,8 @@ namespace WagahighChoices.Toa
                 if (!contentWindow.HasValue) continue;
 
                 this._contentWindow = contentWindow.Value;
+
+                // ウィンドウの位置を左上に移動
                 await this._x11Client.ConfigureWindowAsync(wagahighWindow.Value, x: 0, y: 0).ConfigureAwait(false);
                 return;
             }
@@ -189,6 +192,12 @@ namespace WagahighChoices.Toa
                 throw new Exception("非対応の画像形式です。");
 
             return new GetImageResultImage(contentGeometry.Width, contentGeometry.Height, res);
+        }
+
+        public override async Task<Size> GetContentSizeAsync()
+        {
+            var contentGeometry = await this._x11Client.GetGeometryAsync(this._contentWindow).ConfigureAwait(false);
+            return new Size(contentGeometry.Width, contentGeometry.Height);
         }
 
         public override async Task SetCursorPositionAsync(short x, short y)

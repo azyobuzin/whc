@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Threading.Tasks;
 
 namespace WagahighChoices.Toa
@@ -21,6 +22,9 @@ namespace WagahighChoices.Toa
 
         /// <summary>ゲーム領域の画像を取得します。</summary>
         public abstract Task<Bgra32Image> CaptureContentAsync();
+
+        /// <summary>ゲーム領域の大きさを取得します。</summary>
+        public abstract Task<Size> GetContentSizeAsync();
 
         /// <summary>カーソルをゲーム領域の左上から見て <paramref name="x"/>, <paramref name="y"/> の位置に移動します。</summary>
         public abstract Task SetCursorPositionAsync(short x, short y);
