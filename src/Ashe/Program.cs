@@ -80,7 +80,32 @@ namespace WagahighChoices.Ashe
         /// </summary>
         private async Task StartGameAndQuickSave(WagahighOperator wagahighOperator)
         {
-            // TODO
+            this.Logger.Info("タイトル画面を待っています。");
+
+            while (true)
+            {
+                // カーソルを「はじめから」ボタンへ
+                var contentSize = await wagahighOperator.GetContentSizeAsync().ConfigureAwait(false);
+                await wagahighOperator.SetCursorPositionAsync(
+                    (short)(contentSize.Width * CursorPosition.NewGame.X),
+                    (short)(contentSize.Height * CursorPosition.NewGame.Y)
+                ).ConfigureAwait(false);
+
+                await Task.Delay(200).ConfigureAwait(false);
+
+                // カーソルが hand2 になったらクリック可能
+                var cursorImage = await wagahighOperator.GetCursorImageAsync().ConfigureAwait(false);
+                if (CursorGlyph.Hand2.IsMatch(cursorImage)) break;
+
+                await Task.Delay(2000).ConfigureAwait(false);
+            }
+
+            this.Logger.Info("ゲームをはじめから開始します。");
+
+            // 「はじめから」をクリック
+            await wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+
+            await Task.Delay(int.MaxValue).ConfigureAwait(false); // TODO
         }
     }
 }
