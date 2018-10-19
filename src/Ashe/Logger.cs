@@ -27,7 +27,7 @@ namespace WagahighChoices.Ashe
             {
                 foreach (var (message, timestamp) in records)
                 {
-                    await searchDirector.Log(message, timestamp).ConfigureAwait(false);
+                    await searchDirector.LogAsync(message, timestamp).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -64,7 +64,7 @@ namespace WagahighChoices.Ashe
 
             try
             {
-                await searchDirector.Log(message, timestamp).ConfigureAwait(false);
+                await searchDirector.LogAsync(message, timestamp).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

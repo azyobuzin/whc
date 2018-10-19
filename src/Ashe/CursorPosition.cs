@@ -5,6 +5,11 @@ namespace WagahighChoices.Ashe
     internal static class CursorPosition
     {
         /// <summary>
+        /// 何もない安全地帯
+        /// </summary>
+        public static PointF Neutral { get; } = new PointF(0.01f, 0.01f);
+
+        /// <summary>
         /// はじめから
         /// </summary>
         public static PointF NewGame { get; } = new PointF(0.15f, 0.95f);

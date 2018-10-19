@@ -22,7 +22,7 @@ namespace WagahighChoices.Ashe
         /// <summary>
         /// 新しい指示をもらいます。
         /// </summary>
-        public abstract Task<SeekDirectionResult> SeekDirection();
+        public abstract Task<SeekDirectionResult> SeekDirectionAsync();
 
         /// <summary>
         /// 探索結果をレポートします。
@@ -30,11 +30,11 @@ namespace WagahighChoices.Ashe
         /// <param name="jobId"><see cref="SeekDirectionResult.JobId"/></param>
         /// <param name="heroine">誰のルートに至ったか</param>
         /// <param name="selectionIds">通過した選択画面のリスト</param>
-        public abstract Task ReportResult(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds);
+        public abstract Task ReportResultAsync(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds);
 
         /// <summary>
         /// ログを送信します。
         /// </summary>
-        public abstract Task Log(string message, DateTimeOffset timestamp);
+        public abstract Task LogAsync(string message, DateTimeOffset timestamp);
     }
 }

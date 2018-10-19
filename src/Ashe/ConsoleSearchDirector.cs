@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 
@@ -8,7 +9,7 @@ namespace WagahighChoices.Ashe
 {
     internal class ConsoleSearchDirector : SearchDirector
     {
-        public override Task<SeekDirectionResult> SeekDirection()
+        public override Task<SeekDirectionResult> SeekDirectionAsync()
         {
             return Task.Factory.StartNew(
                 () =>
@@ -30,11 +31,13 @@ namespace WagahighChoices.Ashe
                         return new SeekDirectionResult(kind, Guid.NewGuid(), actions);
                     }
                 },
-                TaskCreationOptions.LongRunning
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default
             );
         }
 
-        public override Task ReportResult(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds)
+        public override Task ReportResultAsync(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds)
         {
             Console.WriteLine(
                 "[{0}] ジョブ {1} が完了\nルート: {2}\n通った選択肢: {3}",
@@ -47,7 +50,7 @@ namespace WagahighChoices.Ashe
             return Task.CompletedTask;
         }
 
-        public override Task Log(string message, DateTimeOffset timestamp)
+        public override Task LogAsync(string message, DateTimeOffset timestamp)
         {
             // ログは Logger が stdout に吐いてくれているので、ここでは何もしない
             return Task.CompletedTask;

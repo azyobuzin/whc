@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using WagahighChoices.Toa;
@@ -49,10 +50,23 @@ namespace WagahighChoices.Ashe
                 return 1;
             }
 
-            using (searchDirector)
-            using (wagahighOperator)
+            var cts = new CancellationTokenSource();
+            Console.CancelKeyPress += (sender, e) =>
             {
-                await this.StartGameAndQuickSave(wagahighOperator).ConfigureAwait(false);
+                e.Cancel = true;
+                cts.Cancel();
+            };
+
+            using (var agent = new SearchAgent(this.Logger, wagahighOperator, searchDirector, cts.Token))
+            {
+                try
+                {
+                    await agent.RunAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    this.Logger.Info("キャンセルされました。");
+                }
             }
 
             return 0;
@@ -73,39 +87,6 @@ namespace WagahighChoices.Ashe
                 var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
                 return await LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display).ConfigureAwait(false);
             }
-        }
-
-        /// <summary>
-        /// ゲームをはじめから開始し、最初の選択肢でクイックセーブする
-        /// </summary>
-        private async Task StartGameAndQuickSave(WagahighOperator wagahighOperator)
-        {
-            this.Logger.Info("タイトル画面を待っています。");
-
-            while (true)
-            {
-                // カーソルを「はじめから」ボタンへ
-                var contentSize = await wagahighOperator.GetContentSizeAsync().ConfigureAwait(false);
-                await wagahighOperator.SetCursorPositionAsync(
-                    (short)(contentSize.Width * CursorPosition.NewGame.X),
-                    (short)(contentSize.Height * CursorPosition.NewGame.Y)
-                ).ConfigureAwait(false);
-
-                await Task.Delay(200).ConfigureAwait(false);
-
-                // カーソルが hand2 になったらクリック可能
-                var cursorImage = await wagahighOperator.GetCursorImageAsync().ConfigureAwait(false);
-                if (CursorGlyph.Hand2.IsMatch(cursorImage)) break;
-
-                await Task.Delay(2000).ConfigureAwait(false);
-            }
-
-            this.Logger.Info("ゲームをはじめから開始します。");
-
-            // 「はじめから」をクリック
-            await wagahighOperator.MouseClickAsync().ConfigureAwait(false);
-
-            await Task.Delay(int.MaxValue).ConfigureAwait(false); // TODO
         }
     }
 }

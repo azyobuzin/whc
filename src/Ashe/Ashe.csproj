@@ -10,11 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Mihiro\Bgr2432InputImage.cs" Link="Bgr2432InputImage.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.2.5" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Ashe.Contract\Ashe.Contract.csproj" />
+    <ProjectReference Include="..\Blockhash\Blockhash.csproj" />
     <ProjectReference Include="..\Toa.Core\Toa.Core.csproj" />
     <ProjectReference Include="..\Toa.Grpc\Toa.Grpc.csproj" />
   </ItemGroup>
