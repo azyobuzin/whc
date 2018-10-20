@@ -35,12 +35,12 @@ namespace WagahighChoices.Ashe
 
         private async Task<int> OnExecuteAsync()
         {
-            var wagahighOperator = await this.CreateWagahighOperator().ConfigureAwait(false);
+            var wagahighOperator = await this.CreateWagahighOperatorAsync().ConfigureAwait(false);
 
             SearchDirector searchDirector;
             try
             {
-                searchDirector = new ConsoleSearchDirector();
+                searchDirector = await this.CreateSearchDirectorAsync().ConfigureAwait(false);
                 await this.Logger.SetSearchDirectorAsync(searchDirector).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -72,7 +72,7 @@ namespace WagahighChoices.Ashe
             return 0;
         }
 
-        private async Task<WagahighOperator> CreateWagahighOperator()
+        private async Task<WagahighOperator> CreateWagahighOperatorAsync()
         {
             if (this.ToaHost != null)
             {
@@ -87,6 +87,19 @@ namespace WagahighChoices.Ashe
                 var display = DisplayIdentifier.Parse(Environment.GetEnvironmentVariable("DISPLAY"));
                 return await LocalWagahighOperator.StartProcessAsync(this.Directory ?? "", display).ConfigureAwait(false);
             }
+        }
+
+        private async Task<SearchDirector> CreateSearchDirectorAsync()
+        {
+            if (this.KaorukoHost != null)
+            {
+                this.Logger.Info($"Kaoruko サーバー {this.KaorukoHost}:{this.KaorukoPort} に接続します。");
+                var remoteSearchDirector = new GrpcRemoteSearchDirector(this.KaorukoHost, this.KaorukoPort);
+                await remoteSearchDirector.ConnectAsync().ConfigureAwait(false);
+                return remoteSearchDirector;
+            }
+
+            return new ConsoleSearchDirector();
         }
     }
 }

@@ -55,6 +55,8 @@ namespace WagahighChoices.Toa.Grpc
 
         protected override void Dispose(bool disposing)
         {
+            base.Dispose(disposing);
+
             // TODO: もっといい手段ないの
             this._channel.ShutdownAsync().Wait();
         }
