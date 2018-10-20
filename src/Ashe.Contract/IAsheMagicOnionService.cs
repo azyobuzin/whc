@@ -9,6 +9,6 @@ namespace WagahighChoices.Ashe
     {
         UnaryResult<SeekDirectionResult> SeekDirection();
         UnaryResult<Nil> ReportResult(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds);
-        UnaryResult<Nil> Log(string message, DateTimeOffset timestamp);
+        UnaryResult<Nil> Log(string message, bool isError, DateTimeOffset timestamp);
     }
 }

@@ -19,11 +19,11 @@ namespace WagahighChoices.Ashe
 
         public Task ConnectAsync() => this._channel.ConnectAsync();
 
-        public override Task LogAsync(string message, DateTimeOffset timestamp) => this._service.Log(message, timestamp).ResponseAsync;
+        public override Task<SeekDirectionResult> SeekDirectionAsync() => this._service.SeekDirection().ResponseAsync;
 
         public override Task ReportResultAsync(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds) => this._service.ReportResult(jobId, heroine, selectionIds).ResponseAsync;
 
-        public override Task<SeekDirectionResult> SeekDirectionAsync() => this._service.SeekDirection().ResponseAsync;
+        public override Task LogAsync(string message, bool isError, DateTimeOffset timestamp) => this._service.Log(message, isError, timestamp).ResponseAsync;
 
         protected override void Dispose(bool disposing)
         {

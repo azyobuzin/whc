@@ -13,15 +13,13 @@
 
 # プロジェクト構成
 ## Kaoruko
-Ashe を制御する中央サーバーです。未着手です。
+Ashe を制御する中央サーバーです。
 
 Ashe との通信用の gRPC サーバーと、管理用の Web サーバーが含まれる予定です。
 
 依存: Ashe.Contract
 
 ## Ashe
-まだプロジェクトすら作ってない。
-
 Kaoruko からの命令を受け、探索を行います。ワガママハイスペックを操作するために Toa を利用します。
 
 Windows からデバッグするときには、 gRPC 経由で Toa.Standalone と通信します。コンテナ上では Toa.Core を使用して直接ワガママハイスペックを操作します。
@@ -29,10 +27,10 @@ Windows からデバッグするときには、 gRPC 経由で Toa.Standalone �
 依存: Toa.Core, Toa.Grpc, Blockhash
 
 ## Ashe.Contract
-Kaoruko と Ashe の通信に使用する MagicOnion のサービスをここに置く予定です。
+Kaoruko と Ashe の通信に使用する MagicOnion のサービスがここに置かれます。
 
 ## Toa.Core
-ワガママハイスペックのプロセスの管理（未実装）と X Window System を経由したウィンドウの操作、およびログファイルの読み取り（未実装）を行います。
+ワガママハイスペックのプロセスの管理と X Window System を経由したウィンドウの操作、およびログファイルの読み取りを行います。
 
 ## Toa.Standalone
 gRPC サーバーとして Toa の機能を公開します。これは Mihiro と Ashe のデバッグ時に利用されます。

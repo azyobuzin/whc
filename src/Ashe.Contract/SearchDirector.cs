@@ -35,6 +35,6 @@ namespace WagahighChoices.Ashe
         /// <summary>
         /// ログを送信します。
         /// </summary>
-        public abstract Task LogAsync(string message, DateTimeOffset timestamp);
+        public abstract Task LogAsync(string message, bool isError, DateTimeOffset timestamp);
     }
 }

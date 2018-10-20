@@ -50,7 +50,7 @@ namespace WagahighChoices.Ashe
             return Task.CompletedTask;
         }
 
-        public override Task LogAsync(string message, DateTimeOffset timestamp)
+        public override Task LogAsync(string message, bool isError, DateTimeOffset timestamp)
         {
             // ログは Logger が stdout に吐いてくれているので、ここでは何もしない
             return Task.CompletedTask;

@@ -8,11 +8,11 @@ namespace WagahighChoices.Ashe
     {
         private readonly object _lockObj = new object();
         private SearchDirector _searchDirector;
-        private readonly List<(string, DateTimeOffset)> _buffer = new List<(string, DateTimeOffset)>();
+        private readonly List<BufferEntry> _buffer = new List<BufferEntry>();
 
         public async Task SetSearchDirectorAsync(SearchDirector searchDirector)
         {
-            (string, DateTimeOffset)[] records;
+            BufferEntry[] records;
 
             lock (this._lockObj)
             {
@@ -25,9 +25,9 @@ namespace WagahighChoices.Ashe
 
             try
             {
-                foreach (var (message, timestamp) in records)
+                foreach (var record in records)
                 {
-                    await searchDirector.LogAsync(message, timestamp).ConfigureAwait(false);
+                    await searchDirector.LogAsync(record.Message, record.IsError, record.Timestamp).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -40,7 +40,7 @@ namespace WagahighChoices.Ashe
             }
         }
 
-        private async void Log(string message)
+        private async void Log(string message, bool isError)
         {
             var timestamp = DateTimeOffset.Now;
 
@@ -57,14 +57,14 @@ namespace WagahighChoices.Ashe
                 if (searchDirector == null)
                 {
                     // searchDirector 設定前ならば、保存しておいて、後で流す
-                    this._buffer.Add((message, timestamp));
+                    this._buffer.Add(new BufferEntry(message, isError, timestamp));
                     return;
                 }
             }
 
             try
             {
-                await searchDirector.LogAsync(message, timestamp).ConfigureAwait(false);
+                await searchDirector.LogAsync(message, isError, timestamp).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -76,8 +76,22 @@ namespace WagahighChoices.Ashe
             }
         }
 
-        public void Info(string message) => this.Log("Info: " + message);
+        public void Info(string message) => this.Log("Info: " + message, false);
 
-        public void Error(string message) => this.Log("Error: " + message);
+        public void Error(string message) => this.Log("Error: " + message, true);
+
+        private sealed class BufferEntry
+        {
+            public string Message { get; }
+            public bool IsError { get; }
+            public DateTimeOffset Timestamp { get; }
+
+            public BufferEntry(string message, bool isError, DateTimeOffset timestamp)
+            {
+                this.Message = message;
+                this.IsError = isError;
+                this.Timestamp = timestamp;
+            }
+        }
     }
 }
