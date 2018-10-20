@@ -8,7 +8,7 @@ namespace WagahighChoices.Ashe
         public int Id { get; }
         public byte[] ScreenshotHash { get; } // ImmutableArray にしたい
 
-        protected SelectionInfo(int id, string screenshotHash)
+        public SelectionInfo(int id, string screenshotHash)
         {
             this.Id = id;
 
@@ -47,9 +47,24 @@ namespace WagahighChoices.Ashe
             new SelectionInfo(9, "43f009f08fe60bee0ff80ff00ff083f0e34ff7c107c106e100e302670057ffff"),
             new SelectionInfo(10, "001ff9ff031f03170ff709b30ff20256035f03d3b3d293ca580c400c7836ffff"),
             new SelectionInfo(11, "21ff00ff00ff08dc0afe017e2d3838afdbc9ece9e360f200f010c0dcc2ff44fe"),
-            new SelectionInfo(12, "01fc1fea33f233c00ff281f03ff013f0b382ff90bfb2848208fc47400780ffff")
+            new SelectionInfo(12, "01fc1fea33f233c00ff281f03ff013f0b382ff90bfb2848208fc47400780ffff"),
+            new RouteSpecificSelectionInfo(13, "3f813f907f80ff007f907e007e707730f7306690e6c09fc39dc08dc0c7e1e7e1", Heroine.Kaoruko),
+            new RouteSpecificSelectionInfo(14, "fffc7ce0f8c03800fe42f242f258ff006fa06de0ffe00f029e279e4abff81c00", Heroine.Ashe),
+            new RouteSpecificSelectionInfo(15, "f800f818fc38fe3cbe38be10be70bc50bbf0bfe097f000e083f883f0e7f0e3c0", Heroine.Toa),
+            new RouteSpecificSelectionInfo(16, "1ffe399c398631c078e078d87c787638039843da43fc61fd33fb03f53bff0000", Heroine.Mihiro)
         );
 
         public static SelectionInfo GetSelectionById(int id) => Selections[id - 1]; // データ依存ハック
+    }
+
+    public class RouteSpecificSelectionInfo : SelectionInfo
+    {
+        public Heroine Heroine { get; }
+
+        public RouteSpecificSelectionInfo(int id, string screenshotHash, Heroine heroine)
+            : base(id, screenshotHash)
+        {
+            this.Heroine = heroine;
+        }
     }
 }

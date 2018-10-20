@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
@@ -98,44 +100,70 @@ namespace WagahighChoices.Ashe
         }
 
         /// <summary>
+        /// <paramref name="point"/> に移動し、カーソルが変わるまで待つ
+        /// </summary>
+        private async Task MoveCursorToButtonAsync(PointF point)
+        {
+            while (true)
+            {
+                await this.MoveCursorAsync(point).ConfigureAwait(false);
+                await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
+
+                if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
+
+                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
         /// 次の選択肢に進む
         /// </summary>
         private async Task SkipAsync()
         {
             this._logger.Info("スキップ開始");
 
-            while (true)
-            {
-                await this.MoveCursorAsync(CursorPosition.GoToNextSelection).ConfigureAwait(false);
-                await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
-
-                if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
-
-                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
-            }
-
+            await this.MoveCursorToButtonAsync(CursorPosition.GoToNextSelection).ConfigureAwait(false);
             await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
-            await Task.Delay(1000, this._cancellationToken).ConfigureAwait(false);
+            await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
 
-            while (true)
-            {
-                await this.MoveCursorAsync(CursorPosition.Yes).ConfigureAwait(false);
-                await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
+            await this.MoveCursorToButtonAsync(CursorPosition.Yes).ConfigureAwait(false);
 
-                if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
-
-                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
-            }
-
+            // スキップ完了をログから検出
             var skipLogTask = this._publishedWagahighLog
                 .FirstAsync(log => log.Contains("スキップにかかった時間", StringComparison.Ordinal))
                 .ToTask(this._cancellationToken);
 
-            await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+            // ムービー突入をログから検出
+            var isMovie = false;
+            using (this._publishedWagahighLog.Subscribe(log =>
+            {
+                if (log.Contains("video mode:", StringComparison.Ordinal))
+                    isMovie = true;
+            }))
+            {
+                // YES をクリック
+                await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+                await Task.Delay(100, this._cancellationToken).ConfigureAwait(false);
 
-            await skipLogTask.ConfigureAwait(false);
+                // 安全地帯へ
+                await this.MoveCursorAsync(CursorPosition.Neutral).ConfigureAwait(false);
+
+                await skipLogTask.ConfigureAwait(false);
+                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
+            }
 
             this._logger.Info("スキップ完了");
+
+            if (isMovie)
+            {
+                this._logger.Info("ムービーをスキップします。");
+
+                // 画面をクリックして、ムービースキップ（どうせ Wine だとエラーで再生されないから必要ないけど）          
+                await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+                await Task.Delay(1000, this._cancellationToken);
+
+                await this.SkipAsync().ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -145,8 +173,7 @@ namespace WagahighChoices.Ashe
         {
             this._logger.Info("タイトル画面を待っています。");
 
-            // TODO: いくら待っても hand2 にならないときにログを吐く
-            while (true)
+            for (var retryCount = 1; ; retryCount++)
             {
                 // カーソルを「はじめから」ボタンへ
                 await this.MoveCursorAsync(CursorPosition.NewGame).ConfigureAwait(false);
@@ -155,6 +182,11 @@ namespace WagahighChoices.Ashe
 
                 // カーソルが hand2 になったらクリック可能
                 if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
+
+                if (retryCount % 5 == 0)
+                {
+                    this._logger.Error($"{retryCount} 回待機しましたが、タイトル画面になりません。");
+                }
 
                 await Task.Delay(2000, this._cancellationToken).ConfigureAwait(false);
             }
@@ -170,16 +202,7 @@ namespace WagahighChoices.Ashe
             await this.SkipAsync().ConfigureAwait(false);
 
             // クイックセーブ
-            while (true)
-            {
-                await this.MoveCursorAsync(CursorPosition.QuickSave).ConfigureAwait(false);
-                await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
-
-                if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
-
-                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
-            }
-
+            await this.MoveCursorToButtonAsync(CursorPosition.QuickSave).ConfigureAwait(false);
             await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
             await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
 
@@ -190,19 +213,79 @@ namespace WagahighChoices.Ashe
             await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task ProcessJobAsync(Guid jobId, ChoiceAction[] actions)
+        private async Task ProcessJobAsync(Guid jobId, IEnumerable<ChoiceAction> actions)
         {
             this._logger.Info($"ジョブ {jobId} を開始");
 
-            // 最初の選択肢の情報を取得
-            // TODO: GetMostSimilarSelectionAsync
+            var actionQueue = new Queue<ChoiceAction>(actions);
+            var selections = new List<SelectionInfo>();
+            Heroine heroine;
+            var retryCount = 0;
 
-            // TODO: このメソッドを抜けるときは、必ずクイックロード済み
+            while (true)
+            {
+                var (selection, distance) = await this.GetMostSimilarSelectionAsync().ConfigureAwait(false);
+
+                if (selection == null)
+                {
+                    retryCount++;
+                    if (retryCount % 5 == 0)
+                        this._logger.Error($"{retryCount} 回リトライしましたが、一致する選択肢画面が見つかりません。（最短距離: {distance}）");
+
+                    await Task.Delay(1000, this._cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (selection is RouteSpecificSelectionInfo heroineSelection)
+                {
+                    heroine = heroineSelection.Heroine;
+                    this._logger.Info($"{heroine} 個別ルートの選択肢に到達しました。（距離: {distance}）");
+                    break;
+                }
+
+                this._logger.Info($"選択肢 {selection.Id} （距離: {distance}）");
+
+                // キューから次の選択を取得
+                // ネタ切れならば、上を選択
+                if (!actionQueue.TryDequeue(out var action))
+                    action = ChoiceAction.SelectUpper;
+
+                this._logger.Info((action == ChoiceAction.SelectUpper ? "上" : "下") + " を選択します。");
+
+                await this.MoveCursorAsync(action == ChoiceAction.SelectUpper ? CursorPosition.UpperChoice : CursorPosition.LowerChoice).ConfigureAwait(false);
+                await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
+
+                if (!await this.CheckCursorIsHandAsync().ConfigureAwait(false))
+                {
+                    this._logger.Info("カーソル画像が変化しないため、リトライします。");
+                    await Task.Delay(1000, this._cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+
+                retryCount = 0;
+                selections.Add(selection);
+
+                // 選択後はスキップを行う
+                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
+                await this.SkipAsync().ConfigureAwait(false);
+            }
+
+            // 結果を送信して、クイックロード
+            await Task.WhenAll(
+                this._searchDirector.ReportResultAsync(jobId, heroine, selections.Select(x => x.Id).ToArray()),
+                this.QuickLoadAsync()
+            ).ConfigureAwait(false);
         }
 
         /// <summary>
         /// スクリーンショットを撮影し、最も近い選択肢画面を返す
         /// </summary>
+        /// <returns>
+        /// 閾値より距離の小さい選択肢画面が見つかった場合、その <see cref="SelectionInfo"/> と、距離を返します。
+        /// 見つからなかった場合、 null と、見つかった中での最短距離を返します。
+        /// </returns>
         private async Task<(SelectionInfo, int)> GetMostSimilarSelectionAsync()
         {
             // ハミング距離の閾値
@@ -210,7 +293,11 @@ namespace WagahighChoices.Ashe
             const int threshold = 10;
 
             var arrayPool = ArrayPool<byte>.Shared;
-            var hash = arrayPool.Rent(32);
+            var hashArray = arrayPool.Rent(32);
+            var hash = new ArraySegment<byte>(hashArray, 0, 32);
+
+            var minDistance = int.MaxValue;
+
             try
             {
                 using (var screenshot = await this._wagahighOperator.CaptureContentAsync().ConfigureAwait(false))
@@ -222,14 +309,28 @@ namespace WagahighChoices.Ashe
                 {
                     var distance = Blockhash.GetDistance(hash, si.ScreenshotHash);
                     if (distance <= threshold) return (si, distance);
+                    if (distance < minDistance) minDistance = distance;
                 }
             }
             finally
             {
-                arrayPool.Return(hash);
+                arrayPool.Return(hashArray);
             }
 
-            return (null, 0);
+            return (null, minDistance);
+        }
+
+        private async Task QuickLoadAsync()
+        {
+            await this.MoveCursorToButtonAsync(CursorPosition.QuickLoad).ConfigureAwait(false);
+            await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+            await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
+
+            await this.MoveCursorToButtonAsync(CursorPosition.Yes).ConfigureAwait(false);
+            await this._wagahighOperator.MouseClickAsync().ConfigureAwait(false);
+            await Task.Delay(2000, this._cancellationToken).ConfigureAwait(false);
+
+            this._logger.Info("クイックロードしました。");
         }
     }
 }

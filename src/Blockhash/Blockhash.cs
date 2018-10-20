@@ -15,6 +15,9 @@ namespace WagahighChoices
             if (bits < 4 || bits % 4 != 0) throw new ArgumentException("bits が 4 の倍数ではありません。");
             if (destination.Length < bits * bits / 8) throw new ArgumentException("destination が小さすぎます。");
 
+            // ゼロクリア
+            destination.Clear();
+
             if (image.Width % bits == 0 && image.Height % bits == 0)
             {
                 ComputeHashQuick(image, bits, destination, ArrayPool<ulong>.Shared);
