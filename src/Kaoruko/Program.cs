@@ -17,11 +17,11 @@ namespace WagahighChoices.Kaoruko
             return CommandLineApplication.Execute<Program>(args);
         }
 
-        [Option("--ashe-port <port>", Description = "Ashe からの接続を受け入れるポート番号（デフォルト: 50222）")]
+        [Option("--ashe-port <port>", Description = "Ashe からの接続を受け入れるポート番号（デフォルト: 30222）")]
         public int AshePort { get; set; } = GrpcAsheServerContract.DefaultPort;
 
-        [Option("--web-port <port>", Description = "管理 Web のポート番号（デフォルト: 50416）")]
-        public int WebPort { get; set; } = 50416;
+        [Option("--web-port <port>", Description = "管理 Web のポート番号（デフォルト: 30416）")]
+        public int WebPort { get; set; } = 30416;
 
         [Option("--db <path>", Description = "データベースのパス（デフォルト: ./kaoruko.sqlite3）")]
         public string DatabasePath { get; set; } = "./kaoruko.sqlite3";

@@ -12,7 +12,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
 {
     public class AsheMagicOnionService : ServiceBase<IAsheMagicOnionService>, IAsheMagicOnionService
     {
-        private SQLiteConnection Connection => this.Context.GetRequiredService<SQLiteConnection>();
+        private SQLiteConnection _connection;
+        private SQLiteConnection Connection => this._connection ?? (this._connection = this.Context.GetRequiredService<SQLiteConnection>());
 
         public UnaryResult<SeekDirectionResult> SeekDirection()
         {
@@ -73,7 +74,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         {
             this.SaveClientInfo();
 
-            this.RunInTransaction(conn =>
+            this.RunInImmediateTransaction(conn =>
             {
                 var job = conn.FindWithQuery<WorkerJob>(
                     "SELECT Choices FROM WorkerJob WHERE Id = ?",
@@ -124,7 +125,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         {
             this.SaveClientInfo();
 
-            this.RunInTransaction(conn =>
+            this.RunInImmediateTransaction(conn =>
             {
                 conn.Insert(new WorkerLog()
                 {
@@ -139,18 +140,29 @@ namespace WagahighChoices.Kaoruko.GrpcServer
             return new UnaryResult<Nil>(Nil.Default);
         }
 
-        private void RunInTransaction(Action<SQLiteConnection> action)
+        private void RunInImmediateTransaction(Action<SQLiteConnection> action)
         {
             var connection = this.Connection;
-            connection.RunInTransaction(() => action(connection));
-        }
+            connection.Execute("BEGIN IMMEDIATE");
 
-        private T RunInTransaction<T>(Func<SQLiteConnection, T> action)
-        {
-            var connection = this.Connection;
-            var result = default(T);
-            connection.RunInTransaction(() => result = action(connection));
-            return result;
+            try
+            {
+                action(connection);
+                connection.Execute("COMMIT");
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    connection.Execute("ROLLBACK");
+                }
+                catch (Exception rollbackException)
+                {
+                    throw new AggregateException(ex, rollbackException);
+                }
+
+                throw;
+            }
         }
 
         private T RunInImmediateTransaction<T>(Func<SQLiteConnection, T> action)
@@ -188,7 +200,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
 
             var setDisconnectAction = false;
 
-            this.RunInTransaction(conn =>
+            this.RunInImmediateTransaction(conn =>
             {
                 var worker = conn.FindWithQuery<Worker>(
                     "SELECT Id, DisconnectedAt FROM Worker WHERE ConnectionId = ?",
@@ -213,8 +225,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                     {
                         // 再接続
                         conn.Execute(
-                        "UPDATE Worker SET DisconnectedAt = NULL, HostName = ? WHERE Id = ?",
-                        hostName, worker.Id);
+                            "UPDATE Worker SET DisconnectedAt = NULL, HostName = ? WHERE Id = ?",
+                            hostName, worker.Id);
 
                         setDisconnectAction = true;
                     }
@@ -229,13 +241,10 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                     // どこから呼び出されるかわからないものなので、別の SQLiteConnection を作成
                     using (var conn = databaseActivator.CreateConnection())
                     {
-                        conn.RunInTransaction(() =>
-                        {
-                            // DisconnectedAt をセット
-                            conn.Execute(
-                                "UPDATE Worker SET DisconnectedAt = ? WHERE ConnectionId = ? AND DisconnectedAt IS NULL",
-                                DateTimeOffset.Now, connectionId);
-                        });
+                        // DisconnectedAt をセット
+                        conn.Execute(
+                            "UPDATE Worker SET DisconnectedAt = ? WHERE ConnectionId = ? AND DisconnectedAt IS NULL",
+                            DateTimeOffset.Now, connectionId);
                     }
                 });
             }

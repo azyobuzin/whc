@@ -15,7 +15,10 @@ namespace WagahighChoices.Kaoruko
 
         public SQLiteConnection CreateConnection()
         {
-            return new SQLiteConnection(this.DatabasePath, SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.FullMutex);
+            return new SQLiteConnection(this.DatabasePath)
+            {
+                BusyTimeout = new TimeSpan(5 * TimeSpan.TicksPerSecond),
+            };
         }
 
         public void Initialize()
