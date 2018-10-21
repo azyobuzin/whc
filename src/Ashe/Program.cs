@@ -20,7 +20,7 @@ namespace WagahighChoices.Ashe
         public string KaorukoHost { get; set; }
 
         [Option("--kaoruko-port <port>", Description = "接続する Kaoruko のポート番号（デフォルト: 50222）")]
-        public int KaorukoPort { get; set; } = GrpcAsheServer.DefaultPort;
+        public int KaorukoPort { get; set; } = GrpcAsheServerContract.DefaultPort;
 
         [Option("--toa-host <host>", Description = "接続する Toa のホスト名。指定しない場合はワガママハイスペックを起動します")]
         public string ToaHost { get; set; }

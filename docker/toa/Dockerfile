@@ -1,5 +1,10 @@
 FROM wagahigh
 
 COPY bin /app/toa
+COPY run_toa.sh /
 
-CMD xvfb-run -als '-screen 0 640x394x24 -listen tcp -ac' /app/toa/toa -d 'C:\wagahigh'
+USER root
+RUN chmod a+rx /run_toa.sh
+
+USER wagahigh
+ENTRYPOINT [ "/run_toa.sh" ]

@@ -1,17 +1,16 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations;
+using SQLite;
 
 namespace WagahighChoices.Kaoruko.Models
 {
     public class WorkerLog
     {
+        [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
 
         public int WorkerId { get; set; }
 
-        public Worker Worker { get; set; }
-
-        [Required]
+        [NotNull]
         public string Message { get; set; }
 
         public bool IsError { get; set; }

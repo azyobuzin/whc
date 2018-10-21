@@ -29,15 +29,16 @@ namespace WagahighChoices.Toa.Standalone
 
             // Ctrl + C が押されたときの動作を設定しておく
             var w = new ManualResetEvent(false);
-            var canceled = 0;
+            var cts = new CancellationTokenSource();
+            cts.Token.Register(() =>
+            {
+                Log.WriteMessage("Terminating");
+                w.Set();
+            });
             Console.CancelKeyPress += (_, e) =>
             {
-                if (Interlocked.CompareExchange(ref canceled, 1, 0) == 0)
-                {
-                    Log.WriteMessage("Terminating");
-                    e.Cancel = true;
-                    w.Set();
-                }
+                e.Cancel = true;
+                cts.Cancel();
             };
 
             GrpcEnvironment.SetLogger(new ConsoleLogger());
