@@ -1,8 +1,10 @@
-﻿using System;
-using System.Threading;
+﻿using System.Globalization;
 using Grpc.Core;
 using Grpc.Core.Logging;
 using McMaster.Extensions.CommandLineUtils;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using WagahighChoices.Ashe;
 using WagahighChoices.Kaoruko.GrpcServer;
 using WagahighChoices.Utils;
@@ -31,26 +33,29 @@ namespace WagahighChoices.Kaoruko
             var databaseActivator = new DatabaseActivator(this.DatabasePath);
             databaseActivator.Initialize();
 
-            var w = new ManualResetEvent(false);
-            var cts = new CancellationTokenSource();
-            cts.Token.Register(() =>
-            {
-                Log.WriteMessage("Terminating");
-                w.Set();
-            });
-            Console.CancelKeyPress += (_, e) =>
-            {
-                e.Cancel = true;
-                cts.Cancel();
-            };
-
             GrpcEnvironment.SetLogger(new ConsoleLogger());
 
-            using (var server = new GrpcAsheServer("0.0.0.0", this.AshePort, databaseActivator))
+            var webHostBuilder = new WebHostBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton(databaseActivator);
+                    services.AddScoped(s => s.GetRequiredService<DatabaseActivator>().CreateConnection());
+                })
+                .ConfigureLogging(logging => logging.AddConsole())
+                .UseKestrel()
+                .UseStartup<WebStartup>()
+                .UseUrls("http://+:" + this.WebPort.ToString(CultureInfo.InvariantCulture));
+
+            using (var grpcServer = new GrpcAsheServer("0.0.0.0", this.AshePort, databaseActivator))
+            using (var webHost = webHostBuilder.Build())
             {
-                server.Start();
+                grpcServer.Start();
                 Log.WriteMessage($"Listening {this.AshePort} for Ashe");
-                w.WaitOne();
+
+                webHost.Start();
+                Log.WriteMessage($"Listening {this.WebPort} for Web");
+
+                webHost.WaitForShutdown();
             }
 
             return 0;
