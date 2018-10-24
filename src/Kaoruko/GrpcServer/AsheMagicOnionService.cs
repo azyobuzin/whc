@@ -24,7 +24,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 {
                     // 未着手のジョブを取得する
                     var job = conn.FindWithQuery<WorkerJob>(
-                        "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL");
+                        "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL LIMIT 1");
 
                     ChoiceAction[] actions;
 
@@ -113,8 +113,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                         EnqueuedAt = DateTimeOffset.Now,
                     };
 
-                    // Choices のユニーク制約に引っかかる場合は、すでにジョブ作成済み
-                    conn.Insert(newJob, "OR IGNORE");
+                    conn.Insert(newJob);
                 }
             });
 
@@ -125,16 +124,15 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         {
             this.SaveClientInfo();
 
-            this.RunInImmediateTransaction(conn =>
+            // トランザクションで守る必要なし
+            var workerId = this.GetWorkerId();
+            this.Connection.Insert(new WorkerLog()
             {
-                conn.Insert(new WorkerLog()
-                {
-                    WorkerId = this.GetWorkerId(),
-                    Message = message,
-                    IsError = isError,
-                    TimestampOnWorker = timestamp,
-                    TimestampOnServer = DateTimeOffset.Now,
-                });
+                WorkerId = workerId,
+                Message = message,
+                IsError = isError,
+                TimestampOnWorker = timestamp,
+                TimestampOnServer = DateTimeOffset.Now,
             });
 
             return new UnaryResult<Nil>(Nil.Default);

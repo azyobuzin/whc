@@ -9,11 +9,13 @@ namespace WagahighChoices.Kaoruko
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            services.AddTransient(typeof(SearchStatusRepository));
         }
 
         public void Configure(IApplicationBuilder app)
         {
             app.UseDeveloperExceptionPage();
+            app.UseStaticFiles();
             app.UseMvc();
         }
     }

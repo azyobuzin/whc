@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.IO;
 using Grpc.Core;
 using Grpc.Core.Logging;
 using McMaster.Extensions.CommandLineUtils;
@@ -43,6 +44,7 @@ namespace WagahighChoices.Kaoruko
                 })
                 .ConfigureLogging(logging => logging.AddConsole())
                 .UseKestrel()
+                .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<WebStartup>()
                 .UseUrls("http://+:" + this.WebPort.ToString(CultureInfo.InvariantCulture));
 

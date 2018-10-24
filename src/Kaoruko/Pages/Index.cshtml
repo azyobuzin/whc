@@ -1,17 +1,89 @@
 ﻿@page
-@model Kaoruko.Pages.IndexModel
+@model IndexModel
 @{
-    Layout = null;
+    ViewData["Title"] = "Kaoruko";
 }
 
-<!DOCTYPE html>
+<section class="container">
+    <h2>途中経過</h2>
+    <table class="table" style="table-layout: fixed">
+        <thead>
+            <tr>
+                <th scope="col">かおるこ</th>
+                <th scope="col">アーシェ</th>
+                <th scope="col">兎亜</th>
+                <th scope="col">未尋</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Kaoruko)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Ashe)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Toa)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Mihiro)</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
 
-<html>
-<head>
-    <meta name="viewport" content="width=device-width" />
-    <title>Index</title>
-</head>
-<body>
-    Hello
-</body>
-</html>
+<section class="container">
+    <h2>進捗状況</h2>
+    <dl>
+        <dt>全ジョブ数</dt>
+        <dd>@Model.WorkerJobStatistics.JobCount 件</dd>
+        <dt>完了済みジョブ数</dt>
+        <dd>@Model.WorkerJobStatistics.CompletedJobCount 件</dd>
+        <dt>作業中ジョブ数</dt>
+        <dd>@Model.WorkerJobStatistics.RunningJobCount 件</dd>
+        <dt>未着手ジョブ数</dt>
+        <dd>@Model.WorkerJobStatistics.PendingJobCount 件</dd>
+    </dl>
+    <div class="progress">
+        @{
+            var progressPercent = Model.WorkerJobStatistics.JobCount == 0
+                ? 0
+                : (int)((double)Model.WorkerJobStatistics.CompletedJobCount / Model.WorkerJobStatistics.JobCount * 100.0);
+        }
+        <div class="progress-bar" role="progressbar" style="width: @progressPercent%" aria-valuenow="@progressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+</section>
+
+<section class="container">
+    <h2>稼働中のワーカー</h2>
+    <table class="workers-table table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">状態</th>
+                <th scope="col">ID</th>
+                <th scope="col">ホスト名</th>
+                <th scope="col">エラーログ数</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var worker in Model.WorkerSummaries)
+            {
+                <tr data-worker-id="@worker.Id">
+                    <td><span class="badge badge-success">Running</span></td>
+                    <td>#@worker.Id</td>
+                    <td>@worker.HostName</td>
+                    <td>@worker.ErrorLogCount 件</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p><a href="workers/">すべてのワーカーを見る</a></p>
+</section>
+
+@section Scripts {
+    <script>
+        Array.prototype.forEach.call(
+            document.querySelectorAll(".workers-table tr"),
+            function (trElement) {
+                var id = trElement.getAttribute("data-worker-id");
+                if (!id) return;
+                trElement.addEventListener("click", function () {
+                    window.location.href = "workers/" + id;
+                });
+            });
+    </script>
+}
