@@ -30,7 +30,8 @@ namespace WagahighChoices.Kaoruko
                     typeof(SearchResult),
                     typeof(Worker),
                     typeof(WorkerJob),
-                    typeof(WorkerLog)
+                    typeof(WorkerLog),
+                    typeof(WorkerScreenshot)
                 );
 
                 connection.RunInTransaction(() =>

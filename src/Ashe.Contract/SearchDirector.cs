@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Ashe
 {
@@ -36,5 +37,10 @@ namespace WagahighChoices.Ashe
         /// ログを送信します。
         /// </summary>
         public abstract Task LogAsync(string message, bool isError, DateTimeOffset timestamp);
+
+        /// <summary>
+        /// スクリーンショットを送信します。
+        /// </summary>
+        public abstract Task ReportScreenshotAsync(Bgra32Image screenshot, DateTimeOffset timestamp);
     }
 }

@@ -77,6 +77,11 @@ namespace WagahighChoices.Kaoruko
                 "SELECT * FROM WorkerLog WHERE WorkerId = ?",
                 workerId);
         }
+
+        public WorkerScreenshot GetScreenshotByWorker(int workerId)
+        {
+            return this._connection.Find<WorkerScreenshot>(workerId);
+        }
     }
 
     public class WorkerJobStatistics

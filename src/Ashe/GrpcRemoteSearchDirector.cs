@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Grpc.Core;
 using MagicOnion.Client;
 using WagahighChoices.GrpcUtils;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Ashe
 {
@@ -47,6 +48,8 @@ namespace WagahighChoices.Ashe
         public override Task ReportResultAsync(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds) => this._service.ReportResult(jobId, heroine, selectionIds).ResponseAsync;
 
         public override Task LogAsync(string message, bool isError, DateTimeOffset timestamp) => this._service.Log(message, isError, timestamp).ResponseAsync;
+
+        public override Task ReportScreenshotAsync(Bgra32Image screenshot, DateTimeOffset timestamp) => this._service.ReportScreenshot(screenshot, timestamp).ResponseAsync;
 
         protected override void Dispose(bool disposing)
         {

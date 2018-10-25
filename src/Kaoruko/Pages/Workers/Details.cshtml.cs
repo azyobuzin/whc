@@ -1,6 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Ashe;
 using WagahighChoices.Kaoruko.Models;
 
@@ -19,6 +24,8 @@ namespace WagahighChoices.Kaoruko.Pages.Workers
         public int CompletedJobCount { get; set; }
         public IReadOnlyList<ChoiceAction> CurrentJob { get; set; }
         public IReadOnlyList<WorkerLog> Logs { get; set; }
+        public string ScreenshotUri { get; set; }
+        public DateTimeOffset ScreenshotTimestamp { get; set; }
 
         public IActionResult OnGet(int id)
         {
@@ -35,7 +42,31 @@ namespace WagahighChoices.Kaoruko.Pages.Workers
 
             this.Logs = this._repository.GetLogsByWorker(id);
 
+            var screenshot = this._repository.GetScreenshotByWorker(id);
+            if (screenshot != null)
+            {
+                this.ScreenshotUri = CreateScreenshotUri(screenshot);
+                this.ScreenshotTimestamp = screenshot.TimestampOnWorker;
+            }
+
             return this.Page();
+        }
+
+        private static string CreateScreenshotUri(WorkerScreenshot screenshot)
+        {
+            ArraySegment<byte> buffer;
+
+            using (var ms = new MemoryStream())
+            {
+                using (var image = Image.LoadPixelData<Bgra32>(screenshot.Data, screenshot.Width, screenshot.Height))
+                    image.Save(ms, new PngEncoder() { ColorType = PngColorType.Rgb });
+
+                if (!ms.TryGetBuffer(out buffer))
+                    buffer = ms.ToArray();
+            }
+
+            var base64 = Convert.ToBase64String(buffer);
+            return "data:image/png;base64," + base64;
         }
     }
 }

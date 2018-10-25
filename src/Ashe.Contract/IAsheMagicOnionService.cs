@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using MagicOnion;
 using MessagePack;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Ashe
 {
@@ -10,5 +11,6 @@ namespace WagahighChoices.Ashe
         UnaryResult<SeekDirectionResult> SeekDirection();
         UnaryResult<Nil> ReportResult(Guid jobId, Heroine heroine, IReadOnlyList<int> selectionIds);
         UnaryResult<Nil> Log(string message, bool isError, DateTimeOffset timestamp);
+        UnaryResult<Nil> ReportScreenshot(Bgra32Image screenshot, DateTimeOffset timestamp);
     }
 }

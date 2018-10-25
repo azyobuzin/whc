@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Ashe
 {
@@ -53,6 +54,11 @@ namespace WagahighChoices.Ashe
         public override Task LogAsync(string message, bool isError, DateTimeOffset timestamp)
         {
             // ログは Logger が stdout に吐いてくれているので、ここでは何もしない
+            return Task.CompletedTask;
+        }
+
+        public override Task ReportScreenshotAsync(Bgra32Image screenshot, DateTimeOffset timestamp)
+        {
             return Task.CompletedTask;
         }
     }

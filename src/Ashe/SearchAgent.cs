@@ -22,6 +22,7 @@ namespace WagahighChoices.Ashe
         private readonly CancellationToken _cancellationToken;
         private IObservable<string> _publishedWagahighLog;
         private readonly SingleAssignmentDisposable _publishedWagahighLogDisposable = new SingleAssignmentDisposable();
+        private readonly SingleAssignmentDisposable _screenshotDisposable = new SingleAssignmentDisposable();
 
         public SearchAgent(Logger logger, WagahighOperator wagahighOperator, SearchDirector searchDirector, CancellationToken cancellationToken)
         {
@@ -46,6 +47,7 @@ namespace WagahighChoices.Ashe
             }
 
             TryDispose(this._publishedWagahighLogDisposable.Dispose);
+            TryDispose(this._screenshotDisposable.Dispose);
             TryDispose(this._wagahighOperator.Dispose);
             TryDispose(this._searchDirector.Dispose);
         }
@@ -56,6 +58,9 @@ namespace WagahighChoices.Ashe
             var connectableWagahighLog = this._wagahighOperator.LogStream.Publish();
             this._publishedWagahighLogDisposable.Disposable = connectableWagahighLog.Connect();
             this._publishedWagahighLog = connectableWagahighLog;
+
+            // 一定時間ごとにスクリーンショットを撮影
+            this.StartReportingScreenshots();
 
             await this.StartGameAndQuickSaveAsync().ConfigureAwait(false);
 
@@ -331,6 +336,26 @@ namespace WagahighChoices.Ashe
             await Task.Delay(2000, this._cancellationToken).ConfigureAwait(false);
 
             this._logger.Info("クイックロードしました。");
+        }
+
+        private void StartReportingScreenshots()
+        {
+            this._screenshotDisposable.Disposable =
+                Observable.Interval(new TimeSpan(TimeSpan.TicksPerSecond))
+                    .Subscribe(async _ =>
+                    {
+                        try
+                        {
+                            using (var screenshot = await this._wagahighOperator.CaptureContentAsync().ConfigureAwait(false))
+                            {
+                                await this._searchDirector.ReportScreenshotAsync(screenshot, DateTimeOffset.Now).ConfigureAwait(false);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            this._logger.Error("スクリーンショット失敗: " + ex);
+                        }
+                    });
         }
     }
 }

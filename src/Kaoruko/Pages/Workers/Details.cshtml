@@ -38,6 +38,19 @@
     </dl>
 </section>
 
+@if (Model.ScreenshotUri != null)
+{
+    <section class="container">
+        <h2>スクリーンショット</h2>
+        <div class="text-center">
+            <img src="@Model.ScreenshotUri"
+                 alt="最新のスクリーンショット"
+                 title="@Model.ScreenshotTimestamp.LocalDateTime 現在のスクリーンショット"
+                 style="max-width: 100%" />
+        </div>
+    </section>
+}
+
 <section class="container">
     <h2>ログ</h2>
     <ul class="list-unstyled">

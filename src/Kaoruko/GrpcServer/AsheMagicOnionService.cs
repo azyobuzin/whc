@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MagicOnion;
 using MagicOnion.Server;
 using MessagePack;
@@ -8,6 +9,7 @@ using SQLite;
 using WagahighChoices.Ashe;
 using WagahighChoices.GrpcUtils;
 using WagahighChoices.Kaoruko.Models;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Kaoruko.GrpcServer
 {
@@ -77,9 +79,17 @@ namespace WagahighChoices.Kaoruko.GrpcServer
 
             this.RunInImmediateTransaction(conn =>
             {
+                var workerId = this.GetWorkerId();
+
                 var job = conn.FindWithQuery<WorkerJob>(
                     "SELECT Choices FROM WorkerJob WHERE Id = ?",
                     jobId);
+
+                if (job.SearchResultId.HasValue)
+                {
+                    // すでに結果報告済み
+                    return;
+                }
 
                 var jobChoices = ModelUtils.ParseChoices(job.Choices);
 
@@ -98,8 +108,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 conn.Insert(searchResult);
 
                 conn.Execute(
-                    "UPDATE WorkerJob SET SearchResultId = ? WHERE Id = ?",
-                    searchResult.Id, jobId);
+                    "UPDATE WorkerJob SET WorkerId = ?, SearchResultId = ? WHERE Id = ?",
+                    workerId, searchResult.Id, jobId);
 
                 // このレポートで発見された未探索のジョブを作成
                 for (var i = jobChoices.Length; i < selectionIds.Count; i++)
@@ -135,6 +145,27 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 TimestampOnWorker = timestamp,
                 TimestampOnServer = DateTimeOffset.Now,
             });
+
+            return new UnaryResult<Nil>(Nil.Default);
+        }
+
+        public UnaryResult<Nil> ReportScreenshot(Bgra32Image screenshot, DateTimeOffset timestamp)
+        {
+            using (screenshot)
+            {
+                this.SaveClientInfo();
+
+                var workerId = this.GetWorkerId();
+                this.Connection.InsertOrReplace(new WorkerScreenshot()
+                {
+                    WorkerId = workerId,
+                    Width = screenshot.Width,
+                    Height = screenshot.Height,
+                    Data = screenshot.Data.ToArray(),
+                    TimestampOnWorker = timestamp,
+                    TimestampOnServer = DateTimeOffset.Now,
+                });
+            }
 
             return new UnaryResult<Nil>(Nil.Default);
         }
@@ -240,10 +271,23 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                     // どこから呼び出されるかわからないものなので、別の SQLiteConnection を作成
                     using (var conn = databaseActivator.CreateConnection())
                     {
+                        conn.Execute("BEGIN IMMEDIATE");
+
+                        var workerId = conn.ExecuteScalar<int>(
+                            "SELECT Id FROM Worker WHERE ConnectionId = ?",
+                            connectionId);
+
                         // DisconnectedAt をセット
                         conn.Execute(
-                            "UPDATE Worker SET DisconnectedAt = ? WHERE ConnectionId = ? AND DisconnectedAt IS NULL",
-                            DateTimeOffset.Now, connectionId);
+                            "UPDATE Worker SET DisconnectedAt = ? WHERE Id = ? AND DisconnectedAt IS NULL",
+                            DateTimeOffset.Now, workerId);
+
+                        // 担当ジョブを放棄
+                        conn.Execute(
+                            "UPDATE WorkerJob SET WorkerId = NULL WHERE WorkerId = ?",
+                            workerId);
+
+                        conn.Execute("COMMIT");
                     }
                 });
             }
@@ -255,5 +299,32 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 "SELECT Id FROM Worker WHERE ConnectionId = ?",
                 this.GetConnectionContext().ConnectionId);
         }
+
+        private async Task RetryWhenLocked(Action action)
+        {
+            while (true)
+            {
+                try
+                {
+                    action();
+                    return;
+                }
+                catch (SQLiteException ex)
+                {
+                    switch (ex.Result)
+                    {
+                        case SQLite3.Result.Busy:
+                        case SQLite3.Result.Locked:
+                            break;
+                        default:
+                            throw;
+                    }
+                }
+
+                await Task.Delay(100).ConfigureAwait(false);
+            }
+        }
+
+        // TODO
     }
 }

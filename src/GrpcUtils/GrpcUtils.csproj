@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc" Version="1.16.0" />
     <PackageReference Include="MagicOnion" Version="0.5.3" />
     <PackageReference Include="MessagePackAnalyzer" Version="1.6.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.1.1" />
