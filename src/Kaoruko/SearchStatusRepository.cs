@@ -17,7 +17,8 @@ namespace WagahighChoices.Kaoruko
 
         public IReadOnlyDictionary<Heroine, int> GetRouteCountByHeroine()
         {
-            return this._connection.Query<RouteCountByHeroine>("SELECT Heroine, COUNT(*) AS Count FROM SearchResult GROUP BY Heroine")
+            return this._connection
+                .Query<RouteCountByHeroine>("SELECT Heroine, COUNT(*) AS Count FROM SearchResult GROUP BY Heroine")
                 .ToDictionary(x => x.Heroine, x => x.Count);
         }
 
@@ -47,7 +48,34 @@ namespace WagahighChoices.Kaoruko
                 + "LEFT JOIN (SELECT WorkerId, COUNT(*) AS ErrorLogCount FROM WorkerLog WHERE IsError != 0 GROUP BY WorkerId) "
                 + "ON Id = WorkerId";
             if (aliveOnly) sql += " WHERE DisconnectedAt IS NULL";
+            sql += " ORDER BY Id DESC";
             return this._connection.Query<WorkerSummary>(sql);
+        }
+
+        public Worker GetWorkerById(int id)
+        {
+            return this._connection.Find<Worker>(id);
+        }
+
+        public int CountCompletedJobsByWorker(int workerId)
+        {
+            return this._connection.ExecuteScalar<int>(
+                "SELECT COUNT(*) FROM WorkerJob WHERE WorkerId = ? AND SearchResultId IS NOT NULL",
+                workerId);
+        }
+
+        public WorkerJob GetJobByWorker(int workerId)
+        {
+            return this._connection.FindWithQuery<WorkerJob>(
+                "SELECT * FROM WorkerJob WHERE WorkerId = ? AND SearchResultId IS NULL LIMIT 1",
+                workerId);
+        }
+
+        public IReadOnlyList<WorkerLog> GetLogsByWorker(int workerId)
+        {
+            return this._connection.Query<WorkerLog>(
+                "SELECT * FROM WorkerLog WHERE WorkerId = ?",
+                workerId);
         }
     }
 

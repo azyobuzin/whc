@@ -1,0 +1,44 @@
+﻿@model IEnumerable<WorkerSummary>
+
+<table class="workers-table table table-hover">
+    <thead>
+        <tr>
+            <th scope="col">状態</th>
+            <th scope="col">ID</th>
+            <th scope="col">ホスト名</th>
+            <th scope="col">エラーログ数</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var worker in Model)
+        {
+            <tr data-worker-id="@worker.Id">
+                <td>
+                    @if (worker.IsAlive)
+                    {
+                        <span class="badge badge-success">Running</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-secondary">Disconnected</span>
+                    }
+                </td>
+                <td>#@worker.Id</td>
+                <td>@worker.HostName</td>
+                <td>@worker.ErrorLogCount 件</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    Array.prototype.forEach.call(
+        document.querySelectorAll(".workers-table tr"),
+        function (trElement) {
+            var id = trElement.getAttribute("data-worker-id");
+            if (!id) return;
+            trElement.addEventListener("click", function () {
+                window.location.href = "@Href("~/workers/")" + id;
+            });
+        });
+</script>

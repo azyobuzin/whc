@@ -1,0 +1,10 @@
+﻿@page "/workers/"
+@model IndexModel
+@{
+    ViewData["Title"] = "すべてのワーカー";
+}
+
+<section class="container">
+    <h2>すべてのワーカー</h2>
+    <partial name="_WorkersTable" model="Model.WorkerSummaries" />
+</section>

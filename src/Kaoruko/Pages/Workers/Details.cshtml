@@ -1,0 +1,49 @@
+﻿@page "/workers/{id:int}"
+@model DetailsModel
+@{
+    var worker = Model.Worker;
+    ViewData["Title"] = "ワーカー #" + worker.Id;
+}
+
+<section class="container">
+    <h2>ワーカー #@worker.Id</h2>
+    <dl>
+        <dt>状態</dt>
+        <dd>
+            @if (worker.IsAlive)
+            {
+                <span class="badge badge-success">Running</span>
+            }
+            else
+            {
+                <span class="badge badge-secondary">Disconnected</span>
+            }
+        </dd>
+        <dt>ホスト名</dt>
+        <dd>@worker.HostName</dd>
+        <dt>接続日時</dt>
+        <dd>@worker.ConnectedAt.LocalDateTime</dd>
+        @if (worker.DisconnectedAt.HasValue)
+        {
+            <dt>切断日時</dt>
+            <dd>@worker.DisconnectedAt.Value.LocalDateTime</dd>
+        }
+        <dt>完了ジョブ数</dt>
+        <dd>@Model.CompletedJobCount 件</dd>
+        @if (Model.CurrentJob != null)
+        {
+            <dt>探索中のジョブ</dt>
+            <dd>@(string.Join("→", Model.CurrentJob.Select(x => x == ChoiceAction.SelectUpper ? "上" : "下")))</dd>
+        }
+    </dl>
+</section>
+
+<section class="container">
+    <h2>ログ</h2>
+    <ul class="list-unstyled">
+        @foreach (var log in Model.Logs)
+        {
+            <li class="@(log.IsError ? "text-danger" : "")">[@(log.TimestampOnWorker.LocalDateTime)] @log.Message</li>
+        }
+    </ul>
+</section>
