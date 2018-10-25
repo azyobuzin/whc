@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {

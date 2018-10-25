@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using MessagePack;
 using MessagePack.Formatters;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {

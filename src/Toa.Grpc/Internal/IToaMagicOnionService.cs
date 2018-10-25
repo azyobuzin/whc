@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using MagicOnion;
 using MessagePack;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {

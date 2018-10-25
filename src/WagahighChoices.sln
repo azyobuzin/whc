@@ -21,7 +21,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ashe", "Ashe\Ashe.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ashe.Contract", "Ashe.Contract\Ashe.Contract.csproj", "{8A6DF50E-3B81-4D41-8E61-C00BCAADECF8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kaoruko", "Kaoruko\Kaoruko.csproj", "{5DB9BB4B-A8C7-4498-BAF0-F69A509C74E9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kaoruko", "Kaoruko\Kaoruko.csproj", "{5DB9BB4B-A8C7-4498-BAF0-F69A509C74E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Toa.Imaging", "Toa.Imaging\Toa.Imaging.csproj", "{A3757F5E-8C2D-4DC1-9F01-4D1BC2673601}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,6 +71,10 @@ Global
 		{5DB9BB4B-A8C7-4498-BAF0-F69A509C74E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5DB9BB4B-A8C7-4498-BAF0-F69A509C74E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5DB9BB4B-A8C7-4498-BAF0-F69A509C74E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3757F5E-8C2D-4DC1-9F01-4D1BC2673601}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3757F5E-8C2D-4DC1-9F01-4D1BC2673601}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3757F5E-8C2D-4DC1-9F01-4D1BC2673601}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3757F5E-8C2D-4DC1-9F01-4D1BC2673601}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

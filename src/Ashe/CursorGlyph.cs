@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
-using WagahighChoices.Toa;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Ashe
 {

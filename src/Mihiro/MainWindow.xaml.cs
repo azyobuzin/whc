@@ -20,6 +20,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using WagahighChoices.Toa;
 using WagahighChoices.Toa.Grpc;
+using WagahighChoices.Toa.Imaging;
 using ISImage = SixLabors.ImageSharp.Image;
 
 namespace WagahighChoices.Mihiro

@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>WagahighChoices.Toa.Imaging</AssemblyName>
+    <RootNamespace>WagahighChoices.Toa.Imaging</RootNamespace>
+  </PropertyGroup>
+
+</Project>

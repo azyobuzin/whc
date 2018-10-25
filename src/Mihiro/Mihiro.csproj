@@ -91,6 +91,10 @@
       <Project>{80aac534-7ae3-4d05-b341-f23a8c900e3a}</Project>
       <Name>Toa.Grpc</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Toa.Imaging\Toa.Imaging.csproj">
+      <Project>{a3757f5e-8c2d-4dc1-9f01-4d1bc2673601}</Project>
+      <Name>Toa.Imaging</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp">

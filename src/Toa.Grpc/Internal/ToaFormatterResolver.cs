@@ -2,6 +2,7 @@
 using MessagePack;
 using MessagePack.Formatters;
 using MessagePack.Resolvers;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {

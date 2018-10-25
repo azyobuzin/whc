@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Grpc.Core;
 using MagicOnion.Client;
 using WagahighChoices.Toa.Grpc.Internal;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc
 {

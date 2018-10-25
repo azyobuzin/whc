@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MagicOnion;
 using MagicOnion.Server;
 using MessagePack;
+using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {
