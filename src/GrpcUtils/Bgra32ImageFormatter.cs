@@ -3,7 +3,7 @@ using MessagePack;
 using MessagePack.Formatters;
 using WagahighChoices.Toa.Imaging;
 
-namespace WagahighChoices.Toa.Grpc.Internal
+namespace WagahighChoices.GrpcUtils
 {
     // シリアライズして Dispose するやつ
     internal class Bgra32ImageFormatter : IMessagePackFormatter<Bgra32Image>

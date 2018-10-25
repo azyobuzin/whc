@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Grpc.Core;
 using MagicOnion.Client;
+using WagahighChoices.GrpcUtils;
 using WagahighChoices.Toa.Grpc.Internal;
 using WagahighChoices.Toa.Imaging;
 
@@ -18,7 +19,7 @@ namespace WagahighChoices.Toa.Grpc
         public GrpcRemoteWagahighOperator(string host, int port)
         {
             this._channel = new Channel(host, port, ChannelCredentials.Insecure);
-            this._service = MagicOnionClient.Create<IToaMagicOnionService>(this._channel, ToaFormatterResolver.Instance);
+            this._service = MagicOnionClient.Create<IToaMagicOnionService>(this._channel, WhcFormatterResolver.Instance);
 
             this.LogStream = Observable.Create<string>(async (observer, cancellationToken) =>
             {

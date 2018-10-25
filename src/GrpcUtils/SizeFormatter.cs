@@ -2,7 +2,7 @@
 using MessagePack;
 using MessagePack.Formatters;
 
-namespace WagahighChoices.Toa.Grpc.Internal
+namespace WagahighChoices.GrpcUtils
 {
     internal class SizeFormatter : IMessagePackFormatter<Size>
     {

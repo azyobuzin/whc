@@ -1,18 +1,17 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using MagicOnion;
 using MagicOnion.Server;
 using MessagePack;
+using WagahighChoices.GrpcUtils;
 using WagahighChoices.Toa.Imaging;
 
 namespace WagahighChoices.Toa.Grpc.Internal
 {
     public class ToaMagicOnionService : ServiceBase<IToaMagicOnionService>, IToaMagicOnionService
     {
-        public WagahighOperator WagahighOperator => this.Context.Items[InjectWagahighOperatorFilterAttribute.ItemKey] as WagahighOperator
-            ?? throw new InvalidOperationException(nameof(InjectWagahighOperatorFilterAttribute) + " が指定されていません。");
+        public WagahighOperator WagahighOperator => this.Context.GetRequiredService<WagahighOperator>();
 
         public UnaryResult<Bgra32Image> CaptureContent()
         {

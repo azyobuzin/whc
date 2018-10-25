@@ -1,52 +1,26 @@
-﻿using System;
-using MagicOnion.Server;
-using Grpc.Core;
+﻿using Microsoft.Extensions.DependencyInjection;
+using WagahighChoices.GrpcUtils;
 using WagahighChoices.Toa.Grpc.Internal;
 
 namespace WagahighChoices.Toa.Grpc
 {
-    public class GrpcToaServer : IDisposable
+    public class GrpcToaServer : WhcGrpcServer
     {
         /// <remarks>12/3 は兎亜ちゃんの誕生日です。</remarks>
         public const int DefaultPort = 51203;
 
-        private readonly Server _server;
         private readonly WagahighOperator _wagahighOperator;
 
         public GrpcToaServer(string host, int port, WagahighOperator wagahighOperator)
+            : base(host, port, typeof(ToaMagicOnionService))
         {
-            var service = MagicOnionEngine.BuildServerServiceDefinition(
-                new[] { typeof(ToaMagicOnionService) },
-                new MagicOnionOptions(true)
-                {
-                    FormatterResolver = ToaFormatterResolver.Instance,
-                    GlobalFilters = new MagicOnionFilterAttribute[]
-                    {
-                        new InjectWagahighOperatorFilterAttribute(wagahighOperator)
-                    },
-                    //MagicOnionLogger = new MagicOnionLogToGrpcLogger()
-                }
-            );
-
-            this._server = new Server()
-            {
-                Services = { service },
-                Ports = { new ServerPort(host, port, ServerCredentials.Insecure) }
-            };
-
             this._wagahighOperator = wagahighOperator;
         }
 
-        public void Start()
+        protected override void ConfigureServices(IServiceCollection services)
         {
-            this._server.Start();
-        }
-
-        public void Dispose()
-        {
-            var t = this._server.ShutdownAsync();
-            this._wagahighOperator.Dispose();
-            t.Wait();
+            // ファクトリで渡して Dispose してもらう
+            services.AddSingleton(_ => this._wagahighOperator);
         }
     }
 }

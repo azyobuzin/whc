@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ashe.Contract\Ashe.Contract.csproj" />
+    <ProjectReference Include="..\GrpcUtils\GrpcUtils.csproj" />
   </ItemGroup>
 
 </Project>

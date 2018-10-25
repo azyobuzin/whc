@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Grpc.Core;
 using MagicOnion.Client;
+using WagahighChoices.GrpcUtils;
 
 namespace WagahighChoices.Ashe
 {
@@ -23,13 +24,20 @@ namespace WagahighChoices.Ashe
             }
             catch (InvalidOperationException) { }
 
-            var metadata = new Metadata();
-            if (!string.IsNullOrEmpty(hostName))
-                metadata.Add(GrpcAsheServerContract.HostNameHeader, hostName);
-
             // ConnectionId を設定する
             this._channelContext = new ChannelContext(this._channel);
-            this._service = this._channelContext.CreateClient<IAsheMagicOnionService>(metadata);
+
+            var headers = new Metadata()
+            {
+                { ChannelContext.HeaderKey, this._channelContext.ConnectionId }
+            };
+
+            if (!string.IsNullOrEmpty(hostName))
+                headers.Add(GrpcAsheServerContract.HostNameHeader, hostName);
+
+            // ChannelContext.CreateClient には IFormatterResolver を指定できるオーバーロードがないので、自分でヘッダーを設定
+            this._service = MagicOnionClient.Create<IAsheMagicOnionService>(this._channel, WhcFormatterResolver.Instance)
+                .WithHeaders(headers);
         }
 
         public Task ConnectAsync() => this._channelContext.WaitConnectComplete();

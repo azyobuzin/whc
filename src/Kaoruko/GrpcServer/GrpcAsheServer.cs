@@ -1,47 +1,22 @@
-﻿using System;
-using Grpc.Core;
-using MagicOnion.Server;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
+using WagahighChoices.GrpcUtils;
 
 namespace WagahighChoices.Kaoruko.GrpcServer
 {
-    internal class GrpcAsheServer : IDisposable
+    internal class GrpcAsheServer : WhcGrpcServer
     {
-        private readonly Server _server;
+        private readonly DatabaseActivator _databaseActivator;
 
         public GrpcAsheServer(string host, int port, DatabaseActivator databaseActivator)
+            : base(host, port, typeof(AsheMagicOnionService))
         {
-            var serviceProvider = new ServiceCollection()
-                .AddSingleton(databaseActivator)
-                .AddScoped(s => s.GetRequiredService<DatabaseActivator>().CreateConnection())
-                .BuildServiceProvider();
-
-            var service = MagicOnionEngine.BuildServerServiceDefinition(
-                new[] { typeof(AsheMagicOnionService) },
-                new MagicOnionOptions(true)
-                {
-                    GlobalFilters = new MagicOnionFilterAttribute[]
-                    {
-                        new DependencyInjectionFilterAttribute(serviceProvider),
-                    },
-                }
-            );
-
-            this._server = new Server()
-            {
-                Services = { service },
-                Ports = { new ServerPort(host, port, ServerCredentials.Insecure) }
-            };
+            this._databaseActivator = databaseActivator;
         }
 
-        public void Start()
+        protected override void ConfigureServices(IServiceCollection services)
         {
-            this._server.Start();
-        }
-
-        public void Dispose()
-        {
-            this._server.ShutdownAsync().Wait();
+            services.AddSingleton(this._databaseActivator);
+            services.AddScoped(s => s.GetRequiredService<DatabaseActivator>().CreateConnection());
         }
     }
 }

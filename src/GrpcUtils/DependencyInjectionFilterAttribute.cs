@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using MagicOnion.Server;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace WagahighChoices.Kaoruko.GrpcServer
+namespace WagahighChoices.GrpcUtils
 {
-    // （これ Toa.Grpc でも使えばよかったな）
     internal class DependencyInjectionFilterAttribute : MagicOnionFilterAttribute
     {
         public const string ItemKey = "DependencyInjectionFilterAttribute.ServiceProvider";
@@ -34,11 +32,14 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         }
     }
 
-    internal static class DependencyInjectionServiceContextExtensions
+    public static class DependencyInjectionServiceContextExtensions
     {
         public static IServiceProvider GetServiceProvider(this ServiceContext context)
         {
-            return context.Items.GetValueOrDefault(DependencyInjectionFilterAttribute.ItemKey) as IServiceProvider;
+            return context.Items.TryGetValue(DependencyInjectionFilterAttribute.ItemKey, out var value)
+                && value is IServiceProvider serviceProvider
+                ? serviceProvider
+                : null;
         }
 
         public static T GetService<T>(this ServiceContext context)

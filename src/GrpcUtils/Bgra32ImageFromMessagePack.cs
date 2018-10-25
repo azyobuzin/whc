@@ -2,7 +2,7 @@
 using System.Buffers;
 using WagahighChoices.Toa.Imaging;
 
-namespace WagahighChoices.Toa.Grpc.Internal
+namespace WagahighChoices.GrpcUtils
 {
     internal class Bgra32ImageFromMessagePack : Bgra32Image
     {

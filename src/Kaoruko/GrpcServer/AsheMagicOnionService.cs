@@ -6,6 +6,7 @@ using MagicOnion.Server;
 using MessagePack;
 using SQLite;
 using WagahighChoices.Ashe;
+using WagahighChoices.GrpcUtils;
 using WagahighChoices.Kaoruko.Models;
 
 namespace WagahighChoices.Kaoruko.GrpcServer
