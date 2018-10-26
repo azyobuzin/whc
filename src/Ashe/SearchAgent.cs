@@ -154,7 +154,9 @@ namespace WagahighChoices.Ashe
                 await this.MoveCursorAsync(CursorPosition.Neutral).ConfigureAwait(false);
 
                 await skipLogTask.ConfigureAwait(false);
-                await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
+
+                // ムービー突入チェック用の余裕
+                await Task.Delay(1000, this._cancellationToken).ConfigureAwait(false);
             }
 
             this._logger.Info("スキップ完了");
