@@ -28,7 +28,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 {
                     // 未着手のジョブを取得する
                     var job = conn.FindWithQuery<WorkerJob>(
-                    "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL LIMIT 1");
+                        "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL LIMIT 1");
 
                     ChoiceAction[] actions;
 
@@ -70,6 +70,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                             workerId, job.Id);
                     }
 
+                    Utils.Log.WriteMessage($"ワーカー #{workerId} にジョブ {job.Id} を指示");
+
                     return new SeekDirectionResult(SeekDirectionResultKind.Ok, job.Id, actions);
                 });
             }).ConfigureAwait(false);
@@ -84,12 +86,13 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 this.RunInImmediateTransaction(conn =>
                 {
                     var job = conn.FindWithQuery<WorkerJob>(
-                        "SELECT Choices FROM WorkerJob WHERE Id = ?",
+                        "SELECT Choices, SearchResultId FROM WorkerJob WHERE Id = ?",
                         jobId);
 
                     if (job.SearchResultId.HasValue)
                     {
                         // すでに結果報告済み
+                        Utils.Log.WriteMessage($"報告が重複しています (Worker: {workerId})");
                         return;
                     }
 
@@ -138,7 +141,6 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         {
             var workerId = await this.WorkerInitializeAsync().ConfigureAwait(false);
 
-            // トランザクションで守る必要なし
             await this.RetryWhenLocked(() =>
             {
                 this.Connection.Insert(new WorkerLog()
@@ -237,6 +239,9 @@ namespace WagahighChoices.Kaoruko.GrpcServer
             var connectionId = this.GetConnectionContext().ConnectionId;
             if (string.IsNullOrEmpty(connectionId)) throw new InvalidOperationException("ConnectionId が指定されていません。");
 
+            if (this.GetConnectionContext().ConnectionStatus.IsCancellationRequested)
+                throw new InvalidOperationException($"コネクション {connectionId} はすでに切断処理を行いました。");
+
             var hostName = this.Context.CallContext.RequestHeaders.GetValue(GrpcAsheServerContract.HostNameHeader, false);
 
             var setDisconnectAction = false;
@@ -250,26 +255,21 @@ namespace WagahighChoices.Kaoruko.GrpcServer
 
                     if (worker == null)
                     {
-                        // 新しい接続
+                        Utils.Log.WriteMessage("新規接続 " + connectionId);
+
                         worker = new Worker()
                         {
                             ConnectionId = connectionId,
                             HostName = hostName,
                             ConnectedAt = DateTimeOffset.Now,
                         };
-                        var affectedRows = conn.Insert(worker, "OR IGNORE");
-
-                        setDisconnectAction = affectedRows > 0;
-                    }
-
-                    if (!worker.IsAlive)
-                    {
-                        // 再接続
-                        conn.Execute(
-                            "UPDATE Worker SET DisconnectedAt = NULL, HostName = ? WHERE Id = ?",
-                            hostName, worker.Id);
+                        conn.Insert(worker);
 
                         setDisconnectAction = true;
+                    }
+                    else if (!worker.IsAlive)
+                    {
+                        throw new InvalidOperationException($"コネクション {connectionId} はすでに切断処理を行いました。");
                     }
 
                     return worker.Id;
@@ -281,6 +281,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 var databaseActivator = this.Context.GetRequiredService<DatabaseActivator>();
                 this.GetConnectionContext().ConnectionStatus.Register(async () =>
                 {
+                    Utils.Log.WriteMessage("切断 " + connectionId);
+
                     // どこから呼び出されるかわからないものなので、別の SQLiteConnection を作成
                     using (var conn = databaseActivator.CreateConnection())
                     {
@@ -295,7 +297,7 @@ namespace WagahighChoices.Kaoruko.GrpcServer
 
                             // 担当ジョブを放棄
                             conn.Execute(
-                                "UPDATE WorkerJob SET WorkerId = NULL WHERE WorkerId = ?",
+                                "UPDATE WorkerJob SET WorkerId = NULL WHERE WorkerId = ? AND SearchResultId IS NULL",
                                 workerId);
 
                             conn.Execute("COMMIT");
@@ -305,13 +307,6 @@ namespace WagahighChoices.Kaoruko.GrpcServer
             }
 
             return workerId;
-        }
-
-        private int GetWorkerId()
-        {
-            return this.Connection.ExecuteScalar<int>(
-                "SELECT Id FROM Worker WHERE ConnectionId = ?",
-                this.GetConnectionContext().ConnectionId);
         }
 
         private async Task RetryWhenLocked(Action action)

@@ -52,36 +52,49 @@ namespace WagahighChoices.Ashe
             TryDispose(this._searchDirector.Dispose);
         }
 
-        public async Task RunAsync()
+        public async Task<bool> RunAsync()
         {
-            // ログを publish
-            var connectableWagahighLog = this._wagahighOperator.LogStream.Publish();
-            this._publishedWagahighLogDisposable.Disposable = connectableWagahighLog.Connect();
-            this._publishedWagahighLog = connectableWagahighLog;
-
-            // 一定時間ごとにスクリーンショットを撮影
-            this.StartReportingScreenshots();
-
-            await this.StartGameAndQuickSaveAsync().ConfigureAwait(false);
-
-            while (true)
+            try
             {
-                var result = await this._searchDirector.SeekDirectionAsync().ConfigureAwait(false);
+                // ログを publish
+                var connectableWagahighLog = this._wagahighOperator.LogStream.Publish();
+                this._publishedWagahighLogDisposable.Disposable = connectableWagahighLog.Connect();
+                this._publishedWagahighLog = connectableWagahighLog;
 
-                switch (result.Kind)
+                // 一定時間ごとにスクリーンショットを撮影
+                this.StartReportingScreenshots();
+
+                await this.StartGameAndQuickSaveAsync().ConfigureAwait(false);
+
+                while (true)
                 {
-                    case SeekDirectionResultKind.Ok:
-                        await this.ProcessJobAsync(result.JobId, result.Actions).ConfigureAwait(false);
-                        break;
-                    case SeekDirectionResultKind.Finished:
-                        this._logger.Info("終了通知を受け取りました。");
-                        return;
-                    default:
-                        // 5 ～ 10 秒後にリトライ
-                        var waitSecs = 5.0 + s_random.NextDouble() * 5.0;
-                        await Task.Delay(TimeSpan.FromSeconds(waitSecs), this._cancellationToken).ConfigureAwait(false);
-                        break;
+                    var result = await this._searchDirector.SeekDirectionAsync().ConfigureAwait(false);
+
+                    switch (result.Kind)
+                    {
+                        case SeekDirectionResultKind.Ok:
+                            await this.ProcessJobAsync(result.JobId, result.Actions).ConfigureAwait(false);
+                            break;
+                        case SeekDirectionResultKind.Finished:
+                            this._logger.Info("終了通知を受け取りました。");
+                            return true;
+                        default:
+                            // 5 ～ 10 秒後にリトライ
+                            var waitSecs = 5.0 + s_random.NextDouble() * 5.0;
+                            await Task.Delay(TimeSpan.FromSeconds(waitSecs), this._cancellationToken).ConfigureAwait(false);
+                            break;
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                this._logger.Info("キャンセルされました。");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                this._logger.Error(ex.ToString());
+                return false;
             }
         }
 
@@ -109,12 +122,14 @@ namespace WagahighChoices.Ashe
         /// </summary>
         private async Task MoveCursorToButtonAsync(PointF point)
         {
-            while (true)
+            for (var retryCount = 1; ; retryCount++)
             {
                 await this.MoveCursorAsync(point).ConfigureAwait(false);
                 await Task.Delay(200, this._cancellationToken).ConfigureAwait(false);
 
                 if (await this.CheckCursorIsHandAsync().ConfigureAwait(false)) break;
+
+                if (retryCount >= 20) throw new TimeoutException("20 回待機しましたが、カーソルが変化しませんでした。");
 
                 await Task.Delay(500, this._cancellationToken).ConfigureAwait(false);
             }
@@ -136,6 +151,7 @@ namespace WagahighChoices.Ashe
             // スキップ完了をログから検出
             var skipLogTask = this._publishedWagahighLog
                 .FirstAsync(log => log.Contains("スキップにかかった時間", StringComparison.Ordinal))
+                .Timeout(new TimeSpan(30 * TimeSpan.TicksPerSecond)) // 30秒で終わらなかったら諦めて死ぬ
                 .ToTask(this._cancellationToken);
 
             // ムービー突入をログから検出
@@ -236,6 +252,8 @@ namespace WagahighChoices.Ashe
                 if (selection == null)
                 {
                     retryCount++;
+                    if (retryCount >= 20)
+                        throw new TimeoutException($"{retryCount} 回リトライしましたが、一致する選択肢画面が見つかりません。（最短距離: {distance}）");
                     if (retryCount % 5 == 0)
                         this._logger.Error($"{retryCount} 回リトライしましたが、一致する選択肢画面が見つかりません。（最短距離: {distance}）");
 

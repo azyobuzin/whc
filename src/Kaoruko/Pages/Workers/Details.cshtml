@@ -33,7 +33,16 @@
         @if (Model.CurrentJob != null)
         {
             <dt>探索中のジョブ</dt>
-            <dd>@(string.Join("→", Model.CurrentJob.Select(x => x == ChoiceAction.SelectUpper ? "上" : "下")))</dd>
+            <dd>
+                @if (Model.CurrentJob.Count > 0)
+                {
+                    @string.Join("→", Model.CurrentJob.Select(x => x == ChoiceAction.SelectUpper ? "上" : "下"))
+                }
+                else
+                {
+                    @:すべて上
+                }
+            </dd>
         }
     </dl>
 </section>

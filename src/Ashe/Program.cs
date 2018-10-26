@@ -59,17 +59,9 @@ namespace WagahighChoices.Ashe
 
             using (var agent = new SearchAgent(this.Logger, wagahighOperator, searchDirector, cts.Token))
             {
-                try
-                {
-                    await agent.RunAsync().ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    this.Logger.Info("キャンセルされました。");
-                }
+                var result = await agent.RunAsync().ConfigureAwait(false);
+                return result ? 0 : 1;
             }
-
-            return 0;
         }
 
         private async Task<WagahighOperator> CreateWagahighOperatorAsync()
