@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MagicOnion;
 using MagicOnion.Server;
 using MessagePack;
+using Microsoft.Extensions.Options;
 using SQLite;
 using WagahighChoices.Ashe;
 using WagahighChoices.GrpcUtils;
@@ -17,6 +18,8 @@ namespace WagahighChoices.Kaoruko.GrpcServer
     {
         private SQLiteConnection _connection;
         private SQLiteConnection Connection => this._connection ?? (this._connection = this.Context.GetRequiredService<SQLiteConnection>());
+
+        private bool IsScreenshotEnabled => this.Context.GetService<IOptions<AsheServerOptions>>()?.Value.Screenshot == true;
 
         public async UnaryResult<SeekDirectionResult> SeekDirection()
         {
@@ -160,20 +163,23 @@ namespace WagahighChoices.Kaoruko.GrpcServer
         {
             using (screenshot)
             {
-                var workerId = await this.WorkerInitializeAsync().ConfigureAwait(false);
-
-                await this.RetryWhenLocked(() =>
+                if (this.IsScreenshotEnabled)
                 {
-                    this.Connection.InsertOrReplace(new WorkerScreenshot()
+                    var workerId = await this.WorkerInitializeAsync().ConfigureAwait(false);
+
+                    await this.RetryWhenLocked(() =>
                     {
-                        WorkerId = workerId,
-                        Width = screenshot.Width,
-                        Height = screenshot.Height,
-                        Data = screenshot.Data.ToArray(),
-                        TimestampOnWorker = timestamp,
-                        TimestampOnServer = DateTimeOffset.Now,
-                    });
-                }).ConfigureAwait(false);
+                        this.Connection.InsertOrReplace(new WorkerScreenshot()
+                        {
+                            WorkerId = workerId,
+                            Width = screenshot.Width,
+                            Height = screenshot.Height,
+                            Data = screenshot.Data.ToArray(),
+                            TimestampOnWorker = timestamp,
+                            TimestampOnServer = DateTimeOffset.Now,
+                        });
+                    }).ConfigureAwait(false);
+                }
             }
 
             return Nil.Default;

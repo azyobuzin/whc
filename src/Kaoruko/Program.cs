@@ -29,6 +29,9 @@ namespace WagahighChoices.Kaoruko
         [Option("--db <path>", Description = "データベースのパス（デフォルト: ./kaoruko.sqlite3）")]
         public string DatabasePath { get; set; } = "./kaoruko.sqlite3";
 
+        [Option("--screenshot", Description = "スクリーンショットの保存を有効にする")]
+        public bool Screenshot { get; set; }
+
         private int OnExecute()
         {
             var databaseActivator = new DatabaseActivator(this.DatabasePath);
@@ -41,6 +44,7 @@ namespace WagahighChoices.Kaoruko
                 {
                     services.AddSingleton(databaseActivator);
                     services.AddScoped(s => s.GetRequiredService<DatabaseActivator>().CreateConnection());
+                    services.Configure<AsheServerOptions>(options => options.Screenshot = this.Screenshot);
                 })
                 .ConfigureLogging(logging => logging.AddConsole())
                 .UseKestrel()
