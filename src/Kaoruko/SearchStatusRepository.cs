@@ -74,8 +74,23 @@ namespace WagahighChoices.Kaoruko
         public IReadOnlyList<WorkerLog> GetLogsByWorker(int workerId)
         {
             return this._connection.Query<WorkerLog>(
-                "SELECT * FROM WorkerLog WHERE WorkerId = ?",
+                "SELECT * FROM WorkerLog WHERE WorkerId = ? ORDER BY TimestampOnWorker, Id",
                 workerId);
+        }
+
+        public IReadOnlyList<WorkerLog> GetLogsByWorker(int workerId, int count, out bool hasMore)
+        {
+            var logs = this._connection.Query<WorkerLog>(
+                "SELECT * FROM WorkerLog WHERE WorkerId = ? ORDER BY TimestampOnWorker DESC, Id DESC LIMIT ?",
+                workerId, count);
+            logs.Reverse();
+
+            var logCount = this._connection.ExecuteScalar<int>(
+                "SELECT COUNT(*) FROM WorkerLog WHERE WorkerId = ?",
+                workerId);
+            hasMore = logCount > count;
+
+            return logs;
         }
 
         public WorkerScreenshot GetScreenshotByWorker(int workerId)

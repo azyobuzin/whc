@@ -24,10 +24,11 @@ namespace WagahighChoices.Kaoruko.Pages.Workers
         public int CompletedJobCount { get; set; }
         public IReadOnlyList<ChoiceAction> CurrentJob { get; set; }
         public IReadOnlyList<WorkerLog> Logs { get; set; }
+        public bool HasMore { get; set; }
         public string ScreenshotUri { get; set; }
         public DateTimeOffset ScreenshotTimestamp { get; set; }
 
-        public IActionResult OnGet(int id)
+        public IActionResult OnGet(int id, bool all = false)
         {
             this.Worker = this._repository.GetWorkerById(id);
 
@@ -40,7 +41,15 @@ namespace WagahighChoices.Kaoruko.Pages.Workers
             if (job != null)
                 this.CurrentJob = ModelUtils.ParseChoices(job.Choices);
 
-            this.Logs = this._repository.GetLogsByWorker(id);
+            if (all)
+            {
+                this.Logs = this._repository.GetLogsByWorker(id);
+            }
+            else
+            {
+                this.Logs = this._repository.GetLogsByWorker(id, 100, out var hasMore);
+                this.HasMore = hasMore;
+            }
 
             var screenshot = this._repository.GetScreenshotByWorker(id);
             if (screenshot != null)

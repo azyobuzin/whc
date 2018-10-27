@@ -30,15 +30,16 @@ namespace WagahighChoices.Kaoruko.GrpcServer
                 return this.RunInImmediateTransaction(conn =>
                 {
                     // 未着手のジョブを取得する
+                    // Choices が短いものから順に着手することで、新たなジョブを開拓していく
                     var job = conn.FindWithQuery<WorkerJob>(
-                        "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL LIMIT 1");
+                        "SELECT Id, Choices FROM WorkerJob WHERE WorkerId IS NULL ORDER BY length(Choices) LIMIT 1");
 
                     ChoiceAction[] actions;
 
                     if (job == null)
                     {
                         var incompletedJobCount = conn.ExecuteScalar<int>(
-                            "SELECT Count(*) FROM WorkerJob WHERE SearchResultId IS NULL");
+                            "SELECT count(*) FROM WorkerJob WHERE SearchResultId IS NULL");
 
                         if (incompletedJobCount > 0)
                         {

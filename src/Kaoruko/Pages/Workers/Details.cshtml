@@ -62,6 +62,13 @@
 
 <section class="container">
     <h2>ログ</h2>
+    @if (Model.HasMore)
+    {
+        <p>
+            最新 @Model.Logs.Count 件のみを表示しています。
+            <a asp-page="/Workers/Details" asp-route-id="@Model.Worker.Id" asp-route-all="true">すべて表示</a>
+        </p>
+    }
     <ul class="list-unstyled">
         @foreach (var log in Model.Logs)
         {
