@@ -1,6 +1,8 @@
 # WagahighChoices 2nd VISION
 ワガママハイスペックの全ルートを探索して、誰の初期好感度が最も高いかを調べよう！
 
+- 完成報告 → [主人公の好感度問題 完結編 - アジョブジ星通信](https://azyobuzin.hatenablog.com/entry/2018/10/29/002457)
+
 途中経過報告
 
 1. https://1drv.ms/p/s!Am67Z1cgKi98g9Ia-1lCD5eDsUPrSQ
