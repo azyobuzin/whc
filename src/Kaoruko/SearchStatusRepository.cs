@@ -97,6 +97,11 @@ namespace WagahighChoices.Kaoruko
         {
             return this._connection.Find<WorkerScreenshot>(workerId);
         }
+
+        public IReadOnlyList<SearchResult> GetSearchResults()
+        {
+            return this._connection.Table<SearchResult>().ToList();
+        }
     }
 
     public class WorkerJobStatistics

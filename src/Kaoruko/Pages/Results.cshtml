@@ -1,0 +1,63 @@
+﻿@page "/results"
+@model ResultsModel
+@{
+    ViewData["Title"] = "結果";
+}
+
+<section class="container">
+    <h2>結果</h2>
+    <table class="table" style="table-layout: fixed">
+        <thead>
+            <tr>
+                <th scope="col">かおるこ</th>
+                <th scope="col">アーシェ</th>
+                <th scope="col">兎亜</th>
+                <th scope="col">未尋</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Kaoruko)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Ashe)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Toa)</td>
+                <td>@Model.RouteCount.GetValueOrDefault(Heroine.Mihiro)</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section class="container">
+    <h2>選択肢ごとのルート到達率</h2>
+    <table class="table" style="table-layout: fixed">
+        <thead>
+            <tr>
+                <th scope="col">選択画面</th>
+                <th scope="col">選んだ選択肢</th>
+                <th scope="col">かおるこ</th>
+                <th scope="col">アーシェ</th>
+                <th scope="col">兎亜</th>
+                <th scope="col">未尋</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var selectionId in Model.AvailableSelections)
+            {
+                <tr>
+                    <th rowspan="2" scope="row">@selectionId</th>
+                    <th scope="row">上</th>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectUpper, Heroine.Kaoruko)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectUpper, Heroine.Ashe)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectUpper, Heroine.Toa)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectUpper, Heroine.Mihiro)</td>
+                </tr>
+                <tr>
+                    <th scope="row">下</th>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectLower, Heroine.Kaoruko)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectLower, Heroine.Ashe)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectLower, Heroine.Toa)</td>
+                    <td>@Model.GetProbability(selectionId, ChoiceAction.SelectLower, Heroine.Mihiro)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>
