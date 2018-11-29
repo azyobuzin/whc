@@ -44,7 +44,6 @@ namespace WagahighChoices.Kaoruko
                 {
                     services.AddSingleton(databaseActivator);
                     services.AddScoped(s => s.GetRequiredService<DatabaseActivator>().CreateConnection());
-                    services.Configure<AsheServerOptions>(options => options.Screenshot = this.Screenshot);
                 })
                 .ConfigureLogging(logging => logging.AddConsole())
                 .UseKestrel()
@@ -52,7 +51,7 @@ namespace WagahighChoices.Kaoruko
                 .UseStartup<WebStartup>()
                 .UseUrls("http://+:" + this.WebPort.ToString(CultureInfo.InvariantCulture));
 
-            using (var grpcServer = new GrpcAsheServer("0.0.0.0", this.AshePort, databaseActivator))
+            using (var grpcServer = new GrpcAsheServer("0.0.0.0", this.AshePort, databaseActivator, this.Screenshot))
             using (var webHost = webHostBuilder.Build())
             {
                 grpcServer.Start();
